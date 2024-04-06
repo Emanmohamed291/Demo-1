@@ -1,89 +1,48 @@
 /*
- * scheduler.c
+ * Scheduler.c
  *
- *  Created on: Mar 12, 2024
- *      Author: Dell
- */
+ * Created: 3/14/2024 9:00:05 AM
+ *  Author: Eman
+ */ 
+#include "Scheduler.h"
+#include "Scheduler_Runnable.h"
+#include "SYSTICK.h"
 
-#include "scheduler.h"
-#include "Runnables_List.h"
-#include "STK.h"
+#define SCHEDULER_TIME           1
 
+static volatile u32 pendingTicks = 0;
+extern const runnable_t SYSRunnables[_Runnables_Num];
 
-#define SCHED_TICK_TIME_ms 1
-static void scheduler_tickcb(void);
-static void scheduler(void);
+static void Sched(void);
+static void Sched_TickCBF(void);
 
-// variable to determine if we should call scheduler
-static volatile u32 pendingTicks=0;
-extern const runnable_t RunnablesList[_Runnables_NUM];
-/*For any internal configuration
-typedef struct
-{
-	runnable_t *RUNNABLE;
-	u32 RemainTime_ms;
-}runnableinfo_t;
-runnableinfo_t rinfo[MAX_SUPPORTED_TASKS];*/
-
-static void scheduler_tickcb(void)
-{
-	pendingTicks++;
+void Sched(void){
+    static u32 timestamp = 0;
+    u8 iter;
+    for(iter=0; iter<_Runnables_Num; iter++){
+        if( (SYSRunnables[iter].CBfunc) && (timestamp%SYSRunnables[iter].periodicitymS==0) ){
+            SYSRunnables[iter].CBfunc();
+        }
+        timestamp += SCHEDULER_TIME;
+    }
 }
 
-static void scheduler(void)
-{
-	u32 idx=0;
-	static u32 timestamp=0;
-	for(idx = 0; idx < _Runnables_NUM; idx++)
-	{
-		if(RunnablesList[idx].cb && (timestamp%RunnablesList[idx].periodicity_ms==0))
-		{
-			RunnablesList[idx].cb();
-		}
-	}
-	timestamp+=SCHED_TICK_TIME_ms;
+void Sched_TickCBF(void){
+    pendingTicks++;
 }
-void scheduler_init(void)
-{
-	// init vars (if needed)
-	STK_Init();
-	// systick configure
-	STK_SetTime_ms(SCHED_TICK_TIME_ms);
-	STK_RegisterCallback(scheduler_tickcb);
-
+void Sched_Init(void){
+    STK_Init(SOURCE_AHB_DIV8);
+    STK_EnableSTKInterrupt();
+    STK_SetTime_mS(SCHEDULER_TIME);
+    STK_SetCallback(Sched_TickCBF);
+    
 }
-
-void scheduler_start(void)
-{
-	// start systick timer
-	STK_Start(STK_Periodic);
-	while(1)
-	{
-
-		if(pendingTicks)
-		{
-			pendingTicks--;
-			scheduler();
-		}
-		else
-		{
-
-		}
-	}
+void Sched_Start(void){
+    STK_Start();
+    while(1){
+        if(pendingTicks){
+            pendingTicks--;
+            Sched();
+        }
+    }
 }
-
-/*Sched_ErrorStatus_t scheduler_registerrunnable(runnable_t* runnable)
-{
-	Sched_ErrorStatus_t Ret_Errorstate=Sched_OK;
-	if(runnable && (rinfo[runnable->priority].RUNNABLE == NULLPTR))
-	{
-		rinfo[runnable->priority].RUNNABLE = runnable;
-		rinfo[runnable->priority].RemainTime_ms = runnable->Delay_ms;
-	}
-	else
-	{
-		Ret_Errorstate=Sched_NOK;
-	}
-	return Ret_Errorstate;
-}*/
-

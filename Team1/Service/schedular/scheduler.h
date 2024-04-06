@@ -1,38 +1,36 @@
 /*
- * scheduler.h
+ * Scheduler.h
  *
- *  Created on: Mar 12, 2024
- *      Author: Dell
- */
+ * Created: 3/14/2024 9:00:18 AM
+ *  Author: Eman
+ */ 
+
 
 #ifndef SCHEDULER_H_
 #define SCHEDULER_H_
-#include "std_types.h"
 
-typedef void (*runnable_cb_t) (void);
+/************************************************************************************
+ *                                       datatypes                                  *
+ * **********************************************************************************/
+typedef unsigned char         u8;
+typedef signed char           s8;
+typedef short unsigned int    u16;
+typedef short signed int      s16;
+typedef unsigned int          u32;
+typedef signed int            s32;
 
-typedef enum
-{
-	Sched_OK,
-	Sched_NOK
-}Sched_ErrorStatus_t;
+typedef void(*runnableCBF_t)(void);
 
-// for any configurations configurable by the user
-typedef struct
-{
-	char *name;
-	//u32 Delay_ms;
-	u32 periodicity_ms;
-	//u32 priority;
-	runnable_cb_t cb;
-} runnable_t;
+typedef struct{
+	char* name;
+    u32 delay_ms;
+	u32 periodicitymS;
+	runnableCBF_t CBfunc;
+}runnable_t;
+/************************************************************************************
+ *                                       functions                                  *
+ * **********************************************************************************/
 
-//Sched_ErrorStatus_t scheduler_registerrunnable(runnable_t *runnable);
-
-// To enable timers
-void scheduler_init(void);
-// all tasks must be created between the init and the start
-// Although our implementation will allow tasks to be run after starting sched
-void scheduler_start(void);
-
+void Sched_Init(void);
+void Sched_Start(void);
 #endif /* SCHEDULER_H_ */

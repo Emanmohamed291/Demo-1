@@ -1,116 +1,129 @@
 /*
  * NVIC.h
  *
- *  Created on: Mar 4, 2024
- *      Author: Dell
- */
+ * Created: 3/5/2024 3:26:27 PM
+ *  Author: Eman
+ */ 
+
 
 #ifndef NVIC_H_
 #define NVIC_H_
 
-#include "std_types.h"
+/************************************************************************************
+ *                                       datatypes                                  *
+ * **********************************************************************************/
+typedef unsigned char         u8;
+typedef signed char           s8;
+typedef short unsigned int    u16;
+typedef short signed int      s16;
+typedef unsigned int          u32;
+typedef signed int            s32;
 
-#define Group_priority_4Bits 0x05FA0300    /*Group Priority Bits:4 [7:4] &  SubPriority Bits:0  [None]*/
-#define Group_priority_3Bits 0x05FA0400    /*Group Priority Bits:3 [7:5] &  SubPriority Bits:1  [4]*/
-#define Group_priority_2Bits 0x05FA0500    /*Group Priority Bits:2 [7:6] &  SubPriority Bits:2  [5:4]*/
-#define Group_priority_1Bit  0x05FA0600    /*Group Priority Bits:1 [7]   &  SubPriority Bits:3  [6:4]*/
-#define Group_priority_None  0x05FA0700    /*Group Priority Bits:0 [None] & SubPriority Bits:4  [7:4]*/
-
-typedef enum{
-     NVIC_OK,
-	 NVIC_Invalid_IRQn,
-	 NVIC_Invalid_PriorityGrouping,
-	 NVIC_InvalidGroupPriority_Value,
-	 NVIC_InvalidSubPriority_Value,
-	 NVIC_ErrorNullPTR
+typedef enum
+{
+	NVIC_Ok,
+	NVIC_WrongINTNumber,
+    NVIC_NULLPOINTER,
+    NVIC_WrongGroupPriority
 }NVIC_ErrorStatus_t;
 
-/* functions prototypes */
+/**
+ * @brief STM32F4XX Interrupt Number Definition, according to the selected device 
+ *        in @ref Library_configuration_section 
+ */
+typedef enum
+{
+/******  Cortex-M4 Processor Exceptions Numbers ****************************************************************/
+  NonMaskableInt_IRQn         = -14,    /*!< 2 Non Maskable Interrupt                                          */
+  MemoryManagement_IRQn       = -12,    /*!< 4 Cortex-M4 Memory Management Interrupt                           */
+  BusFault_IRQn               = -11,    /*!< 5 Cortex-M4 Bus Fault Interrupt                                   */
+  UsageFault_IRQn             = -10,    /*!< 6 Cortex-M4 Usage Fault Interrupt                                 */
+  SVCall_IRQn                 = -5,     /*!< 11 Cortex-M4 SV Call Interrupt                                    */
+  DebugMonitor_IRQn           = -4,     /*!< 12 Cortex-M4 Debug Monitor Interrupt                              */
+  PendSV_IRQn                 = -2,     /*!< 14 Cortex-M4 Pend SV Interrupt                                    */
+  SysTick_IRQn                = -1,     /*!< 15 Cortex-M4 System Tick Interrupt                                */
+/******  STM32 specific Interrupt Numbers **********************************************************************/
+  WWDG_IRQn                   = 0,      /*!< Window WatchDog Interrupt                                         */
+  PVD_IRQn                    = 1,      /*!< PVD through EXTI Line detection Interrupt                         */
+  TAMP_STAMP_IRQn             = 2,      /*!< Tamper and TimeStamp interrupts through the EXTI line             */
+  RTC_WKUP_IRQn               = 3,      /*!< RTC Wakeup interrupt through the EXTI line                        */
+  FLASH_IRQn                  = 4,      /*!< FLASH global Interrupt                                            */
+  RCC_IRQn                    = 5,      /*!< RCC global Interrupt                                              */
+  EXTI0_IRQn                  = 6,      /*!< EXTI Line0 Interrupt                                              */
+  EXTI1_IRQn                  = 7,      /*!< EXTI Line1 Interrupt                                              */
+  EXTI2_IRQn                  = 8,      /*!< EXTI Line2 Interrupt                                              */
+  EXTI3_IRQn                  = 9,      /*!< EXTI Line3 Interrupt                                              */
+  EXTI4_IRQn                  = 10,     /*!< EXTI Line4 Interrupt                                              */
+  DMA1_Stream0_IRQn           = 11,     /*!< DMA1 Stream 0 global Interrupt                                    */
+  DMA1_Stream1_IRQn           = 12,     /*!< DMA1 Stream 1 global Interrupt                                    */
+  DMA1_Stream2_IRQn           = 13,     /*!< DMA1 Stream 2 global Interrupt                                    */
+  DMA1_Stream3_IRQn           = 14,     /*!< DMA1 Stream 3 global Interrupt                                    */
+  DMA1_Stream4_IRQn           = 15,     /*!< DMA1 Stream 4 global Interrupt                                    */
+  DMA1_Stream5_IRQn           = 16,     /*!< DMA1 Stream 5 global Interrupt                                    */
+  DMA1_Stream6_IRQn           = 17,     /*!< DMA1 Stream 6 global Interrupt                                    */
+  ADC_IRQn                    = 18,     /*!< ADC1, ADC2 and ADC3 global Interrupts                             */
+  EXTI9_5_IRQn                = 23,     /*!< External Line[9:5] Interrupts                                     */
+  TIM1_BRK_TIM9_IRQn          = 24,     /*!< TIM1 Break interrupt and TIM9 global interrupt                    */
+  TIM1_UP_TIM10_IRQn          = 25,     /*!< TIM1 Update Interrupt and TIM10 global interrupt                  */
+  TIM1_TRG_COM_TIM11_IRQn     = 26,     /*!< TIM1 Trigger and Commutation Interrupt and TIM11 global interrupt */
+  TIM1_CC_IRQn                = 27,     /*!< TIM1 Capture Compare Interrupt                                    */
+  TIM2_IRQn                   = 28,     /*!< TIM2 global Interrupt                                             */
+  TIM3_IRQn                   = 29,     /*!< TIM3 global Interrupt                                             */
+  TIM4_IRQn                   = 30,     /*!< TIM4 global Interrupt                                             */
+  I2C1_EV_IRQn                = 31,     /*!< I2C1 Event Interrupt                                              */
+  I2C1_ER_IRQn                = 32,     /*!< I2C1 Error Interrupt                                              */
+  I2C2_EV_IRQn                = 33,     /*!< I2C2 Event Interrupt                                              */
+  I2C2_ER_IRQn                = 34,     /*!< I2C2 Error Interrupt                                              */
+  SPI1_IRQn                   = 35,     /*!< SPI1 global Interrupt                                             */
+  SPI2_IRQn                   = 36,     /*!< SPI2 global Interrupt                                             */
+  USART1_IRQn                 = 37,     /*!< USART1 global Interrupt                                           */
+  USART2_IRQn                 = 38,     /*!< USART2 global Interrupt                                           */
+  EXTI15_10_IRQn              = 40,     /*!< External Line[15:10] Interrupts                                   */
+  RTC_Alarm_IRQn              = 41,     /*!< RTC Alarm (A and B) through EXTI Line Interrupt                   */
+  OTG_FS_WKUP_IRQn            = 42,     /*!< USB OTG FS Wakeup through EXTI line interrupt                     */
+  DMA1_Stream7_IRQn           = 47,     /*!< DMA1 Stream7 Interrupt                                            */
+  SDIO_IRQn                   = 49,     /*!< SDIO global Interrupt                                             */
+  TIM5_IRQn                   = 50,     /*!< TIM5 global Interrupt                                             */
+  SPI3_IRQn                   = 51,     /*!< SPI3 global Interrupt                                             */
+  DMA2_Stream0_IRQn           = 56,     /*!< DMA2 Stream 0 global Interrupt                                    */
+  DMA2_Stream1_IRQn           = 57,     /*!< DMA2 Stream 1 global Interrupt                                    */
+  DMA2_Stream2_IRQn           = 58,     /*!< DMA2 Stream 2 global Interrupt                                    */
+  DMA2_Stream3_IRQn           = 59,     /*!< DMA2 Stream 3 global Interrupt                                    */
+  DMA2_Stream4_IRQn           = 60,     /*!< DMA2 Stream 4 global Interrupt                                    */
+  OTG_FS_IRQn                 = 67,     /*!< USB OTG FS global Interrupt                                       */
+  DMA2_Stream5_IRQn           = 68,     /*!< DMA2 Stream 5 global interrupt                                    */
+  DMA2_Stream6_IRQn           = 69,     /*!< DMA2 Stream 6 global interrupt                                    */
+  DMA2_Stream7_IRQn           = 70,     /*!< DMA2 Stream 7 global interrupt                                    */
+  USART6_IRQn                 = 71,     /*!< USART6 global interrupt                                           */
+  I2C3_EV_IRQn                = 72,     /*!< I2C3 event interrupt                                              */
+  I2C3_ER_IRQn                = 73,     /*!< I2C3 error interrupt                                              */
+  FPU_IRQn                    = 81,     /*!< FPU global interrupt                                              */
+  SPI4_IRQn                   = 84      /*!< SPI4 global Interrupt                                              */
+} IRQn_Type;
 
-/*************************** NVIC_EnableInterrupt ***********************************************
- * @brief:  This function enables an interrupt. ------------------------------------------------*
- * @param_in:  IRQn (Interrupt number) : Macro begins with NVIC_ listed in stm32f401cc.h -------*
- * @return: NVIC_ErrorStatus_t, can be:---------------------------------------------------------*
- *         - NVIC_Invalid_IRQn: the user entered IRQn out of range (>85 in our case) -----------*
- ***********************************************************************************************/
-NVIC_ErrorStatus_t NVIC_EnableInterrupt(u8 IRQn);
 
-/*************************** NVIC_DisableInterrupt ***********************************************
- * @brief:  This function disables an interrupt. ------------------------------------------------*
- * @param_in:  IRQn (Interrupt number) : Macro begins with NVIC_ listed in stm32f401cc.h --------*
- * @return: NVIC_ErrorStatus_t, can be:----------------------------------------------------------*
- *         - NVIC_Invalid_IRQn: the user entered IRQn out of range (>85 in our case) ------------*
- ************************************************************************************************/
-NVIC_ErrorStatus_t NVIC_DisableInterrupt(u8 IRQn);
+/************************************************************************************
+ *                                       #defines                                  *
+ * **********************************************************************************/
+#define SCB_PRI_GROUP_0     0x05FA0000
+#define SCB_PRI_GROUP_1     0x05FA0100
+#define SCB_PRI_GROUP_2     0x05FA0200
+#define SCB_PRI_GROUP_3     0x05FA0300
+#define SCB_PRI_GROUP_4     0x05FA0400
+#define SCB_PRI_GROUP_5     0x05FA0500
+#define SCB_PRI_GROUP_6     0x05FA0600
+#define SCB_PRI_GROUP_7     0x05FA0700
 
-/*************************** NVIC_SetPending *****************************************************
- * @brief:  This function set the pending of an interrupt. --------------------------------------*
- * @param_in:  IRQn (Interrupt number) : Macro begins with NVIC_ listed in stm32f401cc.h --------*
- * @return: NVIC_ErrorStatus_t, can be:----------------------------------------------------------*
- *         - NVIC_Invalid_IRQn: the user entered IRQn out of range (>85 in our case) ------------*
- ************************************************************************************************/
-NVIC_ErrorStatus_t NVIC_SetPending(u8 IRQn);
+/************************************************************************************
+ *                                       functions                                  *
+ * **********************************************************************************/
 
-/*************************** NVIC_ClearPending ****************************************************
- * @brief:  This function clear the pending of an interrupt. -------------------------------------*
- * @param_in:  IRQn (Interrupt number) : Macro begins with NVIC_ listed in stm32f401cc.h ---------*
- * @return: NVIC_ErrorStatus_t, can be:-----------------------------------------------------------*
- *          * NVIC_Invalid_IRQn: the user entered IRQn out of range (>85 in our case) ------------*
- *************************************************************************************************/
-NVIC_ErrorStatus_t NVIC_ClearPending(u8 IRQn);
-
-/*************************** NVIC_SetPriority ******************************************************
- * @brief:  This function set the priority bits of an interrupt. ----------------------------------*
- * @param_in:  IRQn (Interrupt number) : Macro begins with NVIC_ listed in stm32f401cc.h ------- --*
- * @param_in:  PriorityGrouping: This field determines the split of group priority from subpriority*
- *          Options: Group_priority_4Bits  --------------------------------------------------------*
- *                   Group_priority_3Bits  --------------------------------------------------------*
- *                   Group_priority_2Bits  --------------------------------------------------------*
- *                   Group_priority_1Bit  ---------------------------------------------------------*
- *                   Group_priority_None ----------------------------------------------------------*
- * @param_in:  GroupPriority: Group priority value. -----------------------------------------------*
- *          Options: Choose according to the selected PriorityGrouping.----------------------------*
- *                   number must less than 2^(GroupPriority bits) ---------------------------------*
- * @param_in:  SubPriority: Subpriority value. ----------------------------------------------------*
- *          Options: Choose according to the selected PriorityGrouping.----------------------------*
- *                   number must less than 2^(Subpriority bits) -----------------------------------*
- * @return: NVIC_ErrorStatus_t: possible return Error status  -------------------------------------*
- *          - NVIC_OK: Operation successful -------------------------------------------------------*
- *          - NVIC_Invalid_IRQn: Invalid interrupt number -----------------------------------------*
- *          - NVIC_Invalid_PriorityGrouping: Invalid priority grouping value ----------------------*
- *          - NVIC_InvalidGroupPriority_Value: Invalid group priority value -----------------------*
- *          - NVIC_InvalidSubPriority_Value: Invalid subpriority value ----------------------------*
- **************************************************************************************************/
-NVIC_ErrorStatus_t NVIC_SetPriority(u8 IRQn,u32 PriorityGrouping,u8 GroupPriorty,u8 SubPriority);
-
-/*************************** NVIC_GetPriority *******************************************************
- * @brief:  Get the priority for an interrupt.------------------------------------------------------*
- * @param_in:  IRQn (Interrupt number): Macro begins with NVIC_ in stm32f401cc.h.-------------------*
- * @param_out:  Priority: Pointer to store the priority value.--------------------------------------*
- * @return: NVIC_ErrorStatus_t, possible values:----------------------------------------------------*
- *          - NVIC_OK: Operation successful.--------------------------------------------------------*
- *          - NVIC_Invalid_IRQn: Invalid interrupt number.------------------------------------------*
- *          - NVIC_ErrorNullPTR: Null pointer error ------------------------------------------------*
- ***************************************************************************************************/
-NVIC_ErrorStatus_t NVIC_GetPriority(u8 IRQn,u8* Priority);
-
-/*************************** NVIC_GetActiveStatus ***************************************************
- * @brief:  Get the priority for an interrupt.------------------------------------------------------*
- * @param_in:  IRQn (Interrupt number): Macro begins with NVIC_ in stm32f401cc.h.-------------------*
- * @param_out:  ActiveStatus: Pointer to store the Active Status of the interrupt.------------------*
- * @return: NVIC_ErrorStatus_t, possible values:----------------------------------------------------*
- *          - NVIC_OK: Operation successful.--------------------------------------------------------*
- *          - NVIC_Invalid_IRQn: Invalid interrupt number.------------------------------------------*
- *          - NVIC_ErrorNullPTR: Null pointer error ------------------------------------------------*
- ***************************************************************************************************/
-NVIC_ErrorStatus_t NVIC_GetActiveStatus(u8 IRQn, u8* ActiveStatus);
-
-/*************************** NVIC_GenerateSWI ********************************************************
- * @brief:  This function generates a software interrupt. -------------------------------------------*
- * @param_in:  IRQn (Interrupt number) : Macro begins with NVIC_ listed in stm32f401cc.h ------------*
- * @return: NVIC_ErrorStatus_t, can be:--------------------------------------------------------------*
- *         - NVIC_Invalid_IRQn: the user entered IRQn out of range (>85 in our case) ----------------*
- ****************************************************************************************************/
-NVIC_ErrorStatus_t NVIC_GenerateSWI(u8 IRQn);
+NVIC_ErrorStatus_t NVIC_EnableInterrupt(u8 Copy_InterruptID);
+NVIC_ErrorStatus_t NVIC_DisableInterrupt(u8 Copy_InterruptID);
+NVIC_ErrorStatus_t NVIC_SetPendingInterrupt(u8 Copy_InterruptID);
+NVIC_ErrorStatus_t NVIC_ClearPendingInterrupt(u8 Copy_InterruptID);
+NVIC_ErrorStatus_t NVIC_GetStatusInterrupt(u8 Copy_InterruptID, u8* Ptr_InterruptStatus);
+NVIC_ErrorStatus_t NVIC_SetPriority(s8 Copy_InterruptID, u8 Copy_Prioty);
+NVIC_ErrorStatus_t NVIC_SetSubGroupbits(u32 Copy_SubGroupbits);
 
 #endif /* NVIC_H_ */
