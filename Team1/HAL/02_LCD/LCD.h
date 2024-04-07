@@ -10,6 +10,7 @@
 
 #include "std_types.h"
 #include "GPIO.h"
+#include "LCD_cfg.h"
 
 /*************** LCD PINS *****************/
 /* Control pins */
@@ -73,7 +74,7 @@ LCD_enumError_t LCD_enuWriteString_asynch(const char* string, LCD_CBF cbf);
  * @param  : Copy_u8Number - The number to be written
  * @return : None
  */
-void LCD_enuWriteNumber_asynch(u16 Copy_u8Number);
+void LCD_enuWriteNumber_asynch(u16 Copy_u8Number,LCD_CBF cbf);
 
 /**
  * @brief  : Saves user request for LCD clear
