@@ -15,6 +15,7 @@
 #define _4_BIT_MASK  0x0000000F
 #define PIN_OFFSET_4 0x00000004
 
+#define PIN_ALTERNATIVE_OFFSET 0x00000004
 
 /********************************************************************************************************/
 /*********************************************APIs Implementation****************************************/
@@ -86,11 +87,18 @@ GPIO_ErrorStatus_t GPIO_InitPin(GPIO_PinCfg_t* AddPinCfg)
 	LocTempRegister|=(AddPinCfg->GPIO_SPEED <<(AddPinCfg->GPIO_PIN*2));
 	((GPIO_t*)(AddPinCfg->GPIO_PORT))->OSPEEDR=LocTempRegister;
 
-	/* Set the AF */
-	LocTempRegister=((GPIO_t*)(AddPinCfg->GPIO_PORT))->AFR;
-	LocTempRegister&= ~( ((u64)_4_BIT_MASK) << (AddPinCfg->GPIO_PIN*PIN_OFFSET_4) );
-	LocTempRegister|=(((u64)AddPinCfg->GPIO_AF) << (AddPinCfg->GPIO_PIN*PIN_OFFSET_4) );
-	((GPIO_t*)(AddPinCfg->GPIO_PORT))->AFR = LocTempRegister;
+	// /* Set the AF */
+	// LocTempRegister=((GPIO_t*)(AddPinCfg->GPIO_PORT))->AFR;
+	// LocTempRegister&= ~( ((u64)_4_BIT_MASK) << (AddPinCfg->GPIO_PIN*PIN_OFFSET_4) );
+	// LocTempRegister|=(((u64)AddPinCfg->GPIO_AF) << (AddPinCfg->GPIO_PIN*PIN_OFFSET_4) );
+	// ((GPIO_t*)(AddPinCfg->GPIO_PORT))->AFR = LocTempRegister;
+			/* AF */
+		if(AddPinCfg->GPIO_PIN <= GPIO_PIN7){
+			((GPIO_t*)(AddPinCfg->GPIO_PORT))->AFRL |= AddPinCfg->GPIO_AF << (PIN_ALTERNATIVE_OFFSET * (AddPinCfg->GPIO_PIN%8));
+		}
+		else{
+			((GPIO_t*)(AddPinCfg->GPIO_PORT))->AFRH |= AddPinCfg->GPIO_AF << (PIN_ALTERNATIVE_OFFSET * (AddPinCfg->GPIO_PIN%8));
+		}
 
  }
 	return GPIO_RetError;

@@ -281,7 +281,7 @@ USART_ErrorStatus_t USART_TxBufferAsyncZeroCopy(USART_Channels_t Channel, u8 *bu
                 USART_TXReq[Channel].cb = cbf;
                 // USART_TXReq[Channel].buffer->pos = 0;
                 USART_TXReq[Channel].state = USART_Busy;
-
+                
                 USART1->USART_DR = USART_TXReq[Channel].buffer->data[0];
                 USART_TXReq[Channel].buffer->pos++;
                 USART1->USART_CR1 |= USART_TXE_INTERRUPT_ENABLE;
@@ -289,7 +289,7 @@ USART_ErrorStatus_t USART_TxBufferAsyncZeroCopy(USART_Channels_t Channel, u8 *bu
             case USART2_channel:
                 USART_TXReq[Channel].state = USART_Busy;
 
-                USART2->USART_CR1 |= USART_TXE_INTERRUPT_ENABLE;
+                
 
                 // USART_buffer_t usart_buffer;
                 usart_buffer.data = buffer;
@@ -306,6 +306,7 @@ USART_ErrorStatus_t USART_TxBufferAsyncZeroCopy(USART_Channels_t Channel, u8 *bu
 
                 USART2->USART_DR = USART_TXReq[Channel].buffer->data[0];
                 USART_TXReq[Channel].buffer->pos++;
+                USART2->USART_CR1 |= USART_TXE_INTERRUPT_ENABLE;
                 break;
             case USART6_channel:
                 USART_TXReq[Channel].state = USART_Busy;
@@ -600,7 +601,7 @@ void USART1_IRQHandler(void)
     {
         if (USART_TXReq[USART1_channel].buffer->pos < USART_TXReq[USART1_channel].buffer->size)
         {
-            USART1->USART_SR &= ~(1 << 6);
+            //USART1->USART_SR &= ~(1 << 6);
             USART1->USART_DR = USART_TXReq[USART1_channel].buffer->data[USART_TXReq[USART1_channel].buffer->pos++];
         }
         else

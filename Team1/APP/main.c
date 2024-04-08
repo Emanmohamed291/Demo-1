@@ -1,8 +1,8 @@
 
-#include "MCAL/RCC/RCC.h"
-#include "MCAL/GPIO/GPIO.h"
-#include "HAL/LED/LED.h"
-#include "HAL/SWITCH/SWITCH.h"
+#include "MCAL/00_RCC/RCC.h"
+#include "MCAL/01_GPIO/GPIO.h"
+// #include "HAL/LED/LED.h"
+// #include "HAL/SWITCH/SWITCH.h"
 /****************************************** switch **********************************/
 // int main(void)
 // {
@@ -34,8 +34,8 @@
 
 // }
 /*********************************************** lcd ********************************************/
-#include "LCD.h"
-#include"SERVICE/schedular/Scheduler.h"
+// #include "LCD.h"
+// #include"SERVICE/schedular/Scheduler.h"
 
 // void initcbf(void)
 // {
@@ -59,14 +59,31 @@
 #include "MCAL/04_USART/USART.h"
 #include "MCAL/02_NVIC/NVIC.h"
 u8* buffer="fadl mohamed abdelfattah ";
+u8* bu;
+void cbb(void){
+	USART_RxBufferAsyncZeroCopy(USART1_channel,bu,1,NULL);
+	USART_TxBufferAsyncZeroCopy(USART1_channel,bu,1,NULL);
+	if(bu =='y')
+	{
+		u8* BUF = "HELLO";
+		USART_TxBufferAsyncZeroCopy(USART1_channel,BUF,5,NULL);
+	}
+	else if(bu =='n')
+	{
+		u8* BUF = "BYE";
+		USART_TxBufferAsyncZeroCopy(USART1_channel,BUF,3,NULL);
+
+	}
+}
 void task(void){
-	USART_TxBufferAsyncZeroCopy(USART1_channel, buffer, 25, NULL);
+	USART_TxBufferAsyncZeroCopy(USART1_channel, buffer, 25, cbb);
+	
 }
 
 int main()
 {
 	RCC_enuEnableDisablePeripheral(RCC_AHB1,GPIOAEN,Periph_enuON);
-	RCC_enuEnableDisablePeripheral(RCC_AHB1,GPIOAEN,Periph_enuON);
+	RCC_enuEnableDisablePeripheral(RCC_AHB1,GPIOBEN,Periph_enuON);
 	RCC_enuEnableDisablePeripheral(RCC_APB2, USART1EN, Periph_enuON);
 	// RCC_EnablePeripheralClock(BusAHB1, GPIO_A);
 	// RCC_EnablePeripheralClock(BusAHB1, GPIO_B);
@@ -112,6 +129,9 @@ int main()
 	//led_init();
 	USART_InitAsyn(&usart_config);
 	task();
+	while(1){
+
+	}
 // 	buffer="eman ";
 //    USART_TxBufferAsyncZeroCopy(USART1_channel, buffer, 4, NULL);
 	// STK_SetCallback(&task);
