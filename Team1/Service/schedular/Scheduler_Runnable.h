@@ -11,12 +11,12 @@
 
 
 typedef enum{
-    LCD_APP,
-    LCD2_APP,
-    TRAFFICAPP,
-    APP1,
+    LCD_Runnable,
+	LCD_TestRunnable,
+    // TRAFFICAPP,
+    // APP1,
     SWITCH,
-    APP2,
+    // APP2,
     _Runnables_Num
 }Runnable_t;
 

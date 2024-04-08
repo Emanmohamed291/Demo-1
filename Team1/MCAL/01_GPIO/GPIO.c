@@ -1,18 +1,24 @@
-/*
- * GPIO.c
- *
- * Created: 2/16/2024 3:54:31 PM
- *  Author: Dell
- */ 
-#include "std_types.h"
+/********************************************************************************************************/
+/************************************************Includes************************************************/
+/********************************************************************************************************/
 #include "GPIO.h"
 
+/********************************************************************************************************/
+/************************************************Defines*************************************************/
+/********************************************************************************************************/
 /*** masks ***/
-#define MODER_Mask 0b11000
-#define OTYPER_Mask 0b00100
-#define PUPDR_Mask 0b00011
-#define Clear2bits 0x00000003
-#define Clear1bit  0x00000001
+#define MODER_Mask   0b11000
+#define OTYPER_Mask  0b00100
+#define PUPDR_Mask   0b00011
+#define Clear2bits   0x00000003
+#define Clear1bit    0x00000001
+#define _4_BIT_MASK  0x0000000F
+#define PIN_OFFSET_4 0x00000004
+
+
+/********************************************************************************************************/
+/*********************************************APIs Implementation****************************************/
+/********************************************************************************************************/
 
 GPIO_ErrorStatus_t GPIO_InitPin(GPIO_PinCfg_t* AddPinCfg)
 {
@@ -79,6 +85,13 @@ GPIO_ErrorStatus_t GPIO_InitPin(GPIO_PinCfg_t* AddPinCfg)
 	LocTempRegister&=~(Clear2bits<<(AddPinCfg->GPIO_PIN*2));
 	LocTempRegister|=(AddPinCfg->GPIO_SPEED <<(AddPinCfg->GPIO_PIN*2));
 	((GPIO_t*)(AddPinCfg->GPIO_PORT))->OSPEEDR=LocTempRegister;
+
+	/* Set the AF */
+	LocTempRegister=((GPIO_t*)(AddPinCfg->GPIO_PORT))->AFR;
+	LocTempRegister&= ~( ((u64)_4_BIT_MASK) << (AddPinCfg->GPIO_PIN*PIN_OFFSET_4) );
+	LocTempRegister|=(((u64)AddPinCfg->GPIO_AF) << (AddPinCfg->GPIO_PIN*PIN_OFFSET_4) );
+	((GPIO_t*)(AddPinCfg->GPIO_PORT))->AFR = LocTempRegister;
+
  }
 	return GPIO_RetError;
 }
@@ -121,3 +134,4 @@ GPIO_ErrorStatus_t GPIO_GetPinValue(void* Copy_Port,u32 Copy_Pin,u8* Add_Value)
 	
 	return GPIO_RetError;
 }
+

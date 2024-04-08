@@ -6,7 +6,7 @@
  */ 
 #include "Scheduler.h"
 #include "Scheduler_Runnable.h"
-#include "SYSTICK.h"
+#include "MCAL/03_SYSTICK/SYSTICK.h"
 
 #define SCHEDULER_TIME           1
 

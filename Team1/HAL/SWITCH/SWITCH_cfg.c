@@ -1,0 +1,9 @@
+
+#include "MCAL/GPIO/GPIO.h"
+#include "SWITCH.h"
+
+/*** SWITCHS user configuration ***/
+const SWITCH_cfg_t SWITCHS[_SWITCH_NUM]={
+	[SWITCH_ONE]={.SWITCH_Port=GPIO_A, .SWITCH_Pin=GPIO_PIN5,  .SWITCH_Mode=SWITCH_INPUT_PU},
+	[SWITCH_TWO]={.SWITCH_Port=GPIO_A, .SWITCH_Pin=GPIO_PIN6,  .SWITCH_Mode=SWITCH_INPUT_PU}
+};

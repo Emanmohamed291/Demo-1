@@ -1,12 +1,12 @@
-/*
- * LCD.c
- *
- *  Created on: Mar 29, 2024
- *      Author: Dell
- */
-#include "std_math.h"
+/********************************************************************************************************/
+/************************************************Includes************************************************/
+/********************************************************************************************************/
+#include "STD_LIB/std_math.h"
 #include "LCD.h"
 
+/********************************************************************************************************/
+/************************************************Defines*************************************************/
+/********************************************************************************************************/
 
 /* Periodicity in milliseconds for LCD_TASK */
 #define LCD_Periodicityms       2U
@@ -29,8 +29,9 @@
 #define PinHigh                 0x00000001
 #define PinLow                  0x00010000
 
-/* External Declaration of LCD Pins Configuration */
-extern const LCD_PinCgf_t LCD_PINS_CFG[LCD_PINS_NUM];
+/********************************************************************************************************/
+/************************************************Types***************************************************/
+/********************************************************************************************************/
 
 /* Enumeration for LCD State */
 typedef enum
@@ -107,7 +108,12 @@ typedef struct
     u8 Y_Pos;
 } PositionRequest_t;
 
-/* Static Declarations */
+/********************************************************************************************************/
+/************************************************Variables***********************************************/
+/********************************************************************************************************/
+
+/* External Declaration of LCD Pins Configuration */
+extern const LCD_PinCgf_t LCD_PINS_CFG[LCD_PINS_NUM];
 static LCDRequest_t LCDRequest[MAXBufferSize];
 static StringRequest_t WriteStrReq[MAXBufferSize];
 static PositionRequest_t SetPosReq[MAXBufferSize];
@@ -115,11 +121,12 @@ static NumberRequest_t WriteNumReq[MAXBufferSize];
 static LCDMode_t LCDMode = Off;
 static EnableState_t EnableState = EN_High;
 LCD_CBF fun=NULLPTR;
-
 u8 CurrRunnablePtr=0;
 u8 RequestPtr=0;
 
-/* Static Functions */
+/********************************************************************************************************/
+/*****************************************Static Functions Prototype*************************************/
+/********************************************************************************************************/
 static void LCD_enuWriteCommand(u8 Copy_u8Command);
 static void LCD_enuWriteData(u8 Copy_u8Data);
 static void LCD_WriteStringProc(void);
@@ -127,6 +134,10 @@ static void LCD_WriteNumberProc(void);
 static void LCD_ClearProc(void);
 static void LCD_SetPosProc(void);
 static void InitSM(void);
+
+/********************************************************************************************************/
+/*********************************************APIs Implementation****************************************/
+/********************************************************************************************************/
 
 void LCD_InitPins(void)
 {
@@ -542,3 +553,4 @@ static void LCD_enuWriteData(u8 Copy_u8Data)
 	 }
 }
 
+;

@@ -6,7 +6,7 @@
  */
 
 #include "USART.h"
-#include "STD_Types.h"
+
 /************************************************************************************
  *                                       datatypes                                  *
  * **********************************************************************************/
@@ -267,7 +267,7 @@ USART_ErrorStatus_t USART_TxBufferAsyncZeroCopy(USART_Channels_t Channel, u8 *bu
             case USART1_channel:
                 USART_TXReq[Channel].state = USART_Busy;
 
-                USART1->USART_CR1 |= USART_TXE_INTERRUPT_ENABLE;
+                
 
                 usart_buffer.data = buffer;
                 usart_buffer.size = len;
@@ -284,6 +284,7 @@ USART_ErrorStatus_t USART_TxBufferAsyncZeroCopy(USART_Channels_t Channel, u8 *bu
 
                 USART1->USART_DR = USART_TXReq[Channel].buffer->data[0];
                 USART_TXReq[Channel].buffer->pos++;
+                USART1->USART_CR1 |= USART_TXE_INTERRUPT_ENABLE;
                 break;
             case USART2_channel:
                 USART_TXReq[Channel].state = USART_Busy;

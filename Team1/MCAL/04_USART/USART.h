@@ -11,14 +11,7 @@
 /************************************************************************************
  *                                       datatypes                                  *
  * **********************************************************************************/
-typedef unsigned char u8;
-typedef signed char s8;
-typedef short unsigned int u16;
-typedef short signed int s16;
-typedef unsigned int u32;
-typedef signed int s32;
-typedef unsigned long long int u64;
-
+#include "STD_LIB/std_types.h"
 typedef enum
 {
     USART_Ok,
@@ -91,7 +84,7 @@ typedef struct
 
 #define F_CLK 16000000
 #define NUMBER_OF_USART 3
-#define NULL   ((void *) 0)
+#define NULL         ((void *) 0)
 
 #define USART_ENABLE 0x00002000
 #define USART_DISABLE 0xFFFFDFFF
@@ -125,6 +118,9 @@ typedef struct
 
 #define USART_TX_ENABLE 0x00000008
 #define USART_RX_ENABLE 0x00000004
+
+#define ENABLE           1
+#define DISABLE          0
 
 #define USART_NOT_FINISH 0
 #define USART_FINISH 1
