@@ -12,7 +12,7 @@ extern void SWITCH_Runnable(void);
 // extern void APP2_Runnable(void);
 // extern void Traffic_Runnable(void);
 extern void LCD_TASK(void);
-extern void LCD_TestAPP(void);
+extern void StopWatch_TestAPP(void);
 
 const runnable_t SYSRunnables[_Runnables_Num] =
 {
@@ -25,8 +25,8 @@ const runnable_t SYSRunnables[_Runnables_Num] =
     [LCD_TestRunnable]={
         .name = "LCD2",
         .delay_ms = 0,
-	    .periodicitymS = 1000,
-	    .CBfunc = &LCD_TestAPP
+	    .periodicitymS = 100,
+	    .CBfunc = &StopWatch_TestAPP
     },
     // [TRAFFICAPP]={
     //     .name = "traffic1",
