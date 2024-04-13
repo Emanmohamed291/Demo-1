@@ -1,20 +1,16 @@
-/********************************************************************************************************/
-/************************************************Includes************************************************/
-/********************************************************************************************************/
+/*
+ * SWITCH.c
+ *
+ * Created: 2/18/2024 11:25:25 AM
+ *  Author: Dell
+ */ 
 
 #include "SWITCH.h"
-#include "MCAL/01_GPIO/GPIO.h"
-
-/********************************************************************************************************/
-/************************************************Variables***********************************************/
-/********************************************************************************************************/
+#include "GPIO.h"
 
 extern const SWITCH_cfg_t SWITCHS[_SWITCH_NUM];
 static u8 SwitchState[_SWITCH_NUM];
 
-/********************************************************************************************************/
-/*********************************************APIs Implementation****************************************/
-/********************************************************************************************************/
 SWITCH_ERRORSTATUS_t SWITCH_Init(void)
 {
 	SWITCH_ERRORSTATUS_t RetSwitchError=SWITCH_OK;
@@ -41,7 +37,7 @@ SWITCH_ERRORSTATUS_t SWITCH_Init(void)
 
 SWITCH_ERRORSTATUS_t SWITCH_GetStatus(u32 Copy_SWITCH, u8* Copy_Status)
 {
-	
+	/*
 	SWITCH_ERRORSTATUS_t RetSwitchError=SWITCH_OK;
 	u8 Input_value;
 	if(Copy_SWITCH>_SWITCH_NUM)
@@ -58,8 +54,8 @@ SWITCH_ERRORSTATUS_t SWITCH_GetStatus(u32 Copy_SWITCH, u8* Copy_Status)
 		RetSwitchError=GPIO_GetPinValue(SWITCHS[Copy_SWITCH].SWITCH_Port,SWITCHS[Copy_SWITCH].SWITCH_Pin,&Input_value);
 		*Copy_Status=Input_value^SWITCHS[Copy_SWITCH].SWITCH_Mode;
 	}
-	return RetSwitchError;
-	  /* SWITCH_ERRORSTATUS_t RetSwitchError=SWITCH_OK;
+	return RetSwitchError;*/
+	   SWITCH_ERRORSTATUS_t RetSwitchError=SWITCH_OK;
 	   if(Copy_SWITCH>_SWITCH_NUM)
 		{
 			RetSwitchError=SWITCH_InvalidSwitch;
@@ -72,7 +68,7 @@ SWITCH_ERRORSTATUS_t SWITCH_GetStatus(u32 Copy_SWITCH, u8* Copy_Status)
 		{
 			*Copy_Status=SwitchState[Copy_SWITCH]^SWITCHS[Copy_SWITCH].SWITCH_Mode;;
 		}
-	return RetSwitchError;*/
+	return RetSwitchError;
 }
 
 /* Runnable task with periodicity =5 ms */
@@ -101,6 +97,3 @@ SWITCH_ERRORSTATUS_t SWITCH_GetStatus(u32 Copy_SWITCH, u8* Copy_Status)
 		Prev_SWValue[idx]=Current_SWValue;
 	}
 }
-
-
-;
