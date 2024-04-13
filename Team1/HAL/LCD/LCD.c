@@ -1,7 +1,7 @@
 /********************************************************************************************************/
 /************************************************Includes************************************************/
 /********************************************************************************************************/
-#include "STD_LIB/std_math.h"
+#include "std_math.h"
 #include "LCD.h"
 
 /********************************************************************************************************/
@@ -12,15 +12,16 @@
 #define LCD_Periodicityms       2U
 
 /* Commands Macros */
-#define LCD_FUNCSET_8BIT        0x38
-#define LCD_DISPON_CURSON_BLOFF 0x0E
-#define LCD_DISPON_CURSON_BLON  0x0F
-#define LCD_CLR                 0x01
+#define LCD_FUNCSET_8BIT           0x38
+#define LCD_DISPON_CURSON_BLOFF    0x0E
+#define LCD_DISPON_CURSOFF_BLOFF   0x0C
+#define LCD_DISPON_CURSON_BLON     0x0F
+#define LCD_CLR                    0x01
 #define LCD_ENTRYMODE_SETINC_SHOFF 0x06
-#define LCD_CLR                 0x01
+#define LCD_CLR                    0x01
 
 /* Max Buffer Requests*/
-#define MAXBufferSize 10
+#define MAXBufferSize 30
 /* Line Numbers */
 #define FirstLine               0
 #define SecondLine              1
@@ -73,6 +74,9 @@ typedef enum
     WriteNumber,
     Clear,
     SetPos,
+	ShiftCursor,
+	DisableCursor,
+	EnableCursor,
     None
 } LCDOperation_t;
 
@@ -101,6 +105,12 @@ typedef struct
     u8 CurrIdx;
 } NumberRequest_t;
 
+/* Structure for shift cursor Request */
+typedef struct
+{
+    u8 Direction;
+} ShiftCursorRequest_t;
+
 /* Structure for Write Position Request */
 typedef struct
 {
@@ -118,6 +128,7 @@ static LCDRequest_t LCDRequest[MAXBufferSize];
 static StringRequest_t WriteStrReq[MAXBufferSize];
 static PositionRequest_t SetPosReq[MAXBufferSize];
 static NumberRequest_t WriteNumReq[MAXBufferSize];
+static ShiftCursorRequest_t ShiftCurReq[MAXBufferSize];
 static LCDMode_t LCDMode = Off;
 static EnableState_t EnableState = EN_High;
 LCD_CBF fun=NULLPTR;
@@ -133,6 +144,9 @@ static void LCD_WriteStringProc(void);
 static void LCD_WriteNumberProc(void);
 static void LCD_ClearProc(void);
 static void LCD_SetPosProc(void);
+static void LCD_ShiftCursorProc(void);
+static void LCD_DisableCursorProc(void);
+static void LCD_EnableCursorProc(void);
 static void InitSM(void);
 
 /********************************************************************************************************/
@@ -247,6 +261,48 @@ void LCD_enuWriteNumber_asynch(u16 Copy_u8Number,LCD_CBF cbf)
 	// Increment index and reset to 0 if it exceeds MAXBufferSize
 	RequestPtr = (RequestPtr + 1) % MAXBufferSize;
 }
+
+void LCD_ShiftCursor_asynch(u8 direction)
+{
+	u8 index = RequestPtr % MAXBufferSize; // Calculate the index using modulo operation
+	if(LCDRequest[index].State==Idle)
+	{
+		//save user data
+		ShiftCurReq[index].Direction=direction;
+		//Edit LCD Request Type and State
+		LCDRequest[index].Type=ShiftCursor;
+		LCDRequest[index].State=Busy;
+	}
+	// Increment index and reset to 0 if it exceeds MAXBufferSize
+	RequestPtr = (RequestPtr + 1) % MAXBufferSize;
+}
+
+void LCD_DisableCursor_asynch(void)
+{
+	u8 index = RequestPtr % MAXBufferSize; // Calculate the index using modulo operation
+	if(LCDRequest[index].State==Idle)
+	{
+		//Edit LCD Request Type and State
+	    LCDRequest[index].Type=DisableCursor;
+	    LCDRequest[index].State=Busy;
+	}
+    // Increment index and reset to 0 if it exceeds MAXBufferSize
+	RequestPtr = (RequestPtr + 1) % MAXBufferSize;
+}
+
+void LCD_EnableCursor_asynch(void)
+{
+	u8 index = RequestPtr % MAXBufferSize; // Calculate the index using modulo operation
+	if(LCDRequest[index].State==Idle)
+	{
+		//Edit LCD Request Type and State
+	    LCDRequest[index].Type=EnableCursor;
+	    LCDRequest[index].State=Busy;
+	}
+    // Increment index and reset to 0 if it exceeds MAXBufferSize
+	RequestPtr = (RequestPtr + 1) % MAXBufferSize;
+}
+
 // Runs every 2ms
 void LCD_TASK(void)
 {
@@ -271,6 +327,15 @@ void LCD_TASK(void)
 			break;
 			case SetPos:
 			LCD_SetPosProc();
+			break;
+			case ShiftCursor:
+			LCD_ShiftCursorProc();
+			break;
+			case EnableCursor:
+			LCD_EnableCursorProc();
+			break;
+			case DisableCursor:
+			LCD_DisableCursorProc();
 			break;
 			default:
 			break;
@@ -507,6 +572,84 @@ static void LCD_WriteNumberProc(void)
 		{
 			LCDRequest[CurrRunnablePtr].cb();
 		}
+	}
+}
+
+void LCD_ShiftCursorProc(void)
+{
+	static EnableState_t EnableState=EN_High;
+	switch(EnableState)
+	{
+	  case EN_High:
+	  /* write shift cursor command*/
+	  LCD_enuWriteCommand(ShiftCurReq[CurrRunnablePtr].Direction);
+	  GPIO_SetPinValue(LCD_PINS_CFG[LCD_E].PORT, LCD_PINS_CFG[LCD_E].PIN, PinHigh);
+	  EnableState = EN_Low;
+	  break;
+	  case EN_Low:
+	  GPIO_SetPinValue(LCD_PINS_CFG[LCD_E].PORT, LCD_PINS_CFG[LCD_E].PIN, PinLow);
+	  EnableState = EN_High;
+	  LCDRequest[CurrRunnablePtr].State=Idle;
+	  LCDRequest[CurrRunnablePtr].Type=None;
+	  // Increment index with modulo operation to implement circular buffer behavior
+	  CurrRunnablePtr = (CurrRunnablePtr + 1) % MAXBufferSize;
+	  if(LCDRequest[CurrRunnablePtr].cb)
+	  {
+		LCDRequest[CurrRunnablePtr].cb();
+	  }
+	  break;
+	}
+}
+
+void LCD_DisableCursorProc(void)
+{
+	static EnableState_t EnableState=EN_High;
+	switch(EnableState)
+	{
+	  case EN_High:
+	  /* write Cursor OFF command*/
+	  LCD_enuWriteCommand(LCD_DISPON_CURSOFF_BLOFF);
+	  GPIO_SetPinValue(LCD_PINS_CFG[LCD_E].PORT, LCD_PINS_CFG[LCD_E].PIN, PinHigh);
+	  EnableState = EN_Low;
+	  break;
+	  case EN_Low:
+	  GPIO_SetPinValue(LCD_PINS_CFG[LCD_E].PORT, LCD_PINS_CFG[LCD_E].PIN, PinLow);
+	  EnableState = EN_High;
+	  LCDRequest[CurrRunnablePtr].State=Idle;
+	  LCDRequest[CurrRunnablePtr].Type=None;
+	  // Increment index with modulo operation to implement circular buffer behavior
+	  CurrRunnablePtr = (CurrRunnablePtr + 1) % MAXBufferSize;
+	  if(LCDRequest[CurrRunnablePtr].cb)
+	  {
+		LCDRequest[CurrRunnablePtr].cb();
+	  }
+	  break;
+	}
+}
+
+void LCD_EnableCursorProc(void)
+{
+	static EnableState_t EnableState=EN_High;
+	switch(EnableState)
+	{
+	  case EN_High:
+	  /* write Cursor ON command*/
+	  LCD_enuWriteCommand(LCD_DISPON_CURSON_BLOFF);
+	  GPIO_SetPinValue(LCD_PINS_CFG[LCD_E].PORT, LCD_PINS_CFG[LCD_E].PIN, PinHigh);
+	  EnableState = EN_Low;
+	  break;
+	  case EN_Low:
+	  GPIO_SetPinValue(LCD_PINS_CFG[LCD_E].PORT, LCD_PINS_CFG[LCD_E].PIN, PinLow);
+	  EnableState = EN_High;
+	  LCDRequest[CurrRunnablePtr].State=Idle;
+	  LCDRequest[CurrRunnablePtr].Type=None;
+	  // Increment index with modulo operation to implement circular buffer behavior
+	  CurrRunnablePtr = (CurrRunnablePtr + 1) % MAXBufferSize;
+	  if(LCDRequest[CurrRunnablePtr].cb)
+	  {
+		LCDRequest[CurrRunnablePtr].cb();
+	  }
+	  break;
 	}
 }
 

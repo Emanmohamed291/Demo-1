@@ -4,8 +4,8 @@
 /********************************************************************************************************/
 /************************************************Includes************************************************/
 /********************************************************************************************************/
-#include "STD_LIB/std_types.h"
-#include "MCAL/GPIO/GPIO.h"
+#include "std_types.h"
+#include "GPIO.h"
 #include "LCD_cfg.h"
 
 /********************************************************************************************************/
@@ -27,6 +27,9 @@
 #define LCD_DB7 10
 
 #define LCD_PINS_NUM 11
+
+/*#define Cursor_Left_Shift  0b00010000
+#define Cursor_Right_Shift 0b00010100*/
 
 /********************************************************************************************************/
 /************************************************Types***************************************************/
@@ -98,32 +101,26 @@ void LCD_ClearScreen_async(void);
  */
 LCD_enumError_t LCD_GotoPos_XY_async(u8 Copy_u8X, u8 Copy_u8Y, LCD_CBF cbf);
 
+/**
+ * @brief  : Shift the cursor position
+ * @param  : Direction
+ * @return : None
+ */
+void LCD_ShiftCursor_asynch(u8 direction);
 
+/**
+ * @brief  : Disable Cursor
+ * @param  : None
+ * @return : None
+ */
+void LCD_DisableCursor_asynch(void);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/**
+ * @brief  : Enable Cursor
+ * @param  : None
+ * @return : None
+ */
+void LCD_EnableCursor_asynch(void);
 
 
 
