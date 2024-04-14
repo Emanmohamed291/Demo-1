@@ -15,20 +15,16 @@
 #include "HAL/SWITCH/SWITCH.h"
 
 /* main menu */
-#define OK                          '1'
-#define MODE                        '1'
+#define OK_MODE                       '1'
 
-#define UP                          '2'
-#define EDIT                        '3'
+#define UP                            '2'
+#define EDIT                          '3'
 
-#define RIGHT                       '4'
-#define START_STOP_STOPWATCH        '4'
+#define RIGHT_START_STOP_STOPWATCH    '4'
 
-#define LEFT                        '5'
-#define RESET_STOPWATCH             '5'
+#define LEFT_RESET_STOPWATCH          '5'
 
-#define PAUSE_CONTINUE_STOPWATCH    '6'
-#define DOWN                        '6'
+#define DOWN_PAUSE_CONTINUE_STOPWATCH '6'
 
 
 
@@ -96,7 +92,7 @@ void CBFun(void)
     {
     case MainMenu:
         {
-            /* code */
+            APP_LCDMainMenu();
             switch (PubSub_buffer)
             {
             case UP:
@@ -104,12 +100,12 @@ void CBFun(void)
                 LCD_GotoPos_XY_async(0,0,NULLPTR);
                 LCD_modechoose = StopWatch;
             break;
-            case DOWN:
+            case DOWN_PAUSE_CONTINUE_STOPWATCH:
                 /* code */
                 LCD_GotoPos_XY_async(1,0,NULLPTR);
                 LCD_modechoose = DateAndTime;
             break;
-			case OK:
+			case OK_MODE:
                 /* code */
                 LCD_Mode = LCD_modechoose;
             break;
@@ -120,12 +116,15 @@ void CBFun(void)
         }
     break;
     case DateAndTime:
-        /* code */
+        switch (PubSub_buffer)
+		{
+			case 
+		}
         break;
     case StopWatch:{
 		switch (PubSub_buffer)
 		{
-		case MODE:
+		case OK_MODE:
 		    LCD_Mode = DateAndTime;
 			break;
 		default:
@@ -143,9 +142,8 @@ void CBFun(void)
 extern StopWatch_value_t StopWatch_value;
 void StopWatch_TestAPP(void)
 {
-	static u8 count = 0;
+	//static u8 count = 0;
 	static u8 change = 1;
-	count++;
 	switch(state){
 		case continue_state:
 		change = 1;
@@ -210,7 +208,7 @@ void StopWatch_TestAPP(void)
 			LCD_enuWriteNumber_asynch(StopWatch_value.millisec, NULLPTR);
 		}
 	break;
-	case pause_state:
+	case pause_state: // start/stop pause/cont reset mode
 	    change = 1;
 		break;
 	case start_state:
@@ -250,22 +248,22 @@ void StopWatch_TestAPP(void)
 }
 
 /*********************************************** app receive from switches ********************************/
-void APP_Control(void)
+void APP_Control(void)//175
 {
     PubSub_ReceiveUSART(USART_CH1, &PubSub_buffer, 1, CBFun);
 }
 
 /*********************************************** app receive from switches ********************************/
-void APP_Send(void)
+void APP_Send(void)//150
 {
-	PubSub_SendUSART(USART_CH1, MODE, 1, CBFun);
+	//PubSub_SendUSART(USART_CH1, MODE, 1, NULLPTR);
 	u8 switchState = SWITCH_NOT_PRESSED;
 	/* mode */
 	SWITCH_GetStatus(SWITCH_MODE, &switchState);
 	switch (switchState)
 	{
 	case SWITCH_PRESSED:
-		PubSub_SendUSART(USART_CH1, MODE, 1, CBFun);
+		PubSub_SendUSART(USART_CH1, OK_MODE, 1, NULLPTR);
 		switchState = SWITCH_NOT_PRESSED;
 		break;
 	case SWITCH_NOT_PRESSED:
