@@ -1,1113 +1,642 @@
 /*
- * USART.c
- *
- * Created: 22/3/2024 12:58:15 AM
- *  Author: Eman
- */
-
+* File:    USART.h
+* Author:  Yasmin Amr
+* Created: 28/3/2024
+* Brief:   USART Driver
+* Target:  STM32F401cc
+*/
 #include "USART.h"
+/**************************************************************************/
+/*					USART Request States                      	          */
+/**************************************************************************/
+#define busy     (0U)
+#define ready    (1U)
 
-/************************************************************************************
- *                                       datatypes                                  *
- * **********************************************************************************/
+/**************************************************************************/
+/*					USART Counts in Microcontroller            	          */
+/**************************************************************************/
+#define USART_COUNT  (3U)
 
+/**************************************************************************/
+/*					USART Implementation Masks                 	          */
+/**************************************************************************/
+#define USART_TC_FLAG_MASK                  0x00000040
+#define USART_TXE_FLAG_MASK                 0x00000080
+#define USART_RXNE_FLAG_MASK                0x00000020
+
+#define USART_ENABLE_MASK                   0x00002000
+#define USART_TXE_INT_ENABLE_MASK           0X00000080
+#define USART_RXNE_INT_ENABLE_MASK          0X00000020 
+#define USART_TX_ENABLE_MASK                0X00000008
+#define USART_RX_ENABLE_MASK                0X00000004
+
+#define USART_WORD_LENGTH_MASK              0x00001000
+#define USART_OVERSAMPLING_MASK             0x00008000
+#define USART_STOP_BIT_MASK                 0x00003000
+
+#define USART_PARITY_ON                     0x00000400
+#define USART_PARITY_SELECT_MASK            0x00000200
+#define USART_PARITY_CONTROL_MASK           0x00000400
+
+#define USART_TX_ENABLE                     0x00000008
+#define USART_RX_ENABLE                     0x00000004
+
+#define USART_TX_DISABLE                    0x00000000
+#define USART_RX_DISABLE                    0x00000000
+
+#define USART_DIV_MANTISSA_MASK              0x0000FFF0
+#define USART_DIV_FRACTION_MASK              0x0000000F
+
+#define USART_ENABLE                         0x00002000
+#define USART_DISABLE                        0x00000000
+
+#define USART_TXE_INTERRUPT_ENABLE           0x00000080
+#define USART_TXE_INTERRUPT_DISABLE          0x00000000
+
+#define USART_TX_COMPLETE_INT_ENABLE         0x00000040
+#define USART_TX_COMPLETE_INT_DISABLE        0x00000000
+
+#define USART_RXNE_INT_ENABLE                0x00000020   
+#define USART_RXNE_INT_DISABLE               0x00000000
+
+/**************************************************************************/
+/*					USART Shifts                               	          */
+/**************************************************************************/
+#define SHIFT_FOUR                           (4U)
+
+/**************************************************************************/
+/*					USART Error Checking                    	          */
+/**************************************************************************/
+
+#define IS_USART_OVERSAMPLING(USART_OVERSAMPLING)       ((USART_OVERSAMPLING==USART_OVERSAMPLING_16)    ||\
+                                                        (USART_OVERSAMPLING==USART_OVERSAMPLING_8))
+
+
+#define IS_USART_WORD_LENGTH(USART_WORD_LENGTH)         ((USART_WORD_LENGTH==USART_DATA_BITS_8)         ||\
+                                                        (USART_WORD_LENGTH==USART_DATA_BITS_9))
+
+#define IS_USART_PARITY_SELECT(USART_PARITY_SELECT)     ((USART_PARITY_SELECT==USART_PARITY_NONE)       ||\
+                                                        (USART_PARITY_SELECT==USART_PARITY_EVEN)        ||\
+                                                        (USART_PARITY_SELECT==USART_PARITY_ODD))
+
+
+#define IS_USART_STOP_BITS(USART_STOP_BITS)             ((USART_STOP_BITS==USART_STOP_BITS_HALF)                ||\
+                                                        (USART_STOP_BITS==USART_STOP_BITS_ONE)                  ||\
+                                                        (USART_STOP_BITS==USART_STOP_BITS_ONE_AND_HALF)         ||\
+                                                        (USART_STOP_BITS==USART_STOP_BITS_TWO))
+
+/**
+ * @brief:  USART Registers 
+*/
 typedef struct
 {
-    volatile u32 USART_SR;
-    volatile u32 USART_DR;
-    volatile u32 USART_BRR;
-    volatile u32 USART_CR1;
-    volatile u32 USART_CR2;
-    volatile u32 USART_CR3;
-    volatile u32 USART_GTPR;
+   u32 SR;
+   u32 DR;
+   u32 BRR;
+   u32 CR1;
+   u32 CR2;
+   u32 CR3;
+   u32 GTPR;
+}USART_Reg_t;
 
-} USART_Registers_t;
-
+/**
+ * @brief:   Struct for Storing UART TX/RX Request Buffer Info 
+*/
 typedef struct
 {
-    u8 parity_error;
-    u8 transmission_complete;
-    u8 transmit_empty;
-    u8 read_empty;
-} interrupt_status_t;
+    volatile u8*data;                 /*Bytes to be Sent/Received Asynchronously*/
+    volatile u16 len;                 /*Number of Bytes to Be Sent/Received Asynchronously*/
+    volatile fnpointer cbf;           /*CallBack Function After End of Operation*/
+    volatile u16 pos;                  /*Tracker for Bytes*/
+    volatile u8 state;                 /*State for User Request*/
+}USART_Buffer_t;
 
-interrupt_status_t interrupt[NUMBER_OF_USART];
+/**************************************************************************/
+/*					USART Peri Addresses                       	          */
+/**************************************************************************/
+#define USART1        ((volatile USART_Reg_t*const)0x40011000)
+#define USART2        ((volatile USART_Reg_t*const)0x40004400)
+#define USART6        ((volatile USART_Reg_t*const)0x40011400)
 
-enum
+/*Array to store USART TX User Request Buffer Info for each USART Peripheral*/
+USART_Buffer_t volatile USART_TxBuffer[3]={{.state=ready},{.state=ready},{.state=ready}};
+
+/*Array to store USART RX User Request Buffer Info for each USART Peripheral*/
+USART_Buffer_t volatile USART_RxBuffer[3]={{.state=ready},{.state=ready},{.state=ready}};
+
+/*Array of USART Peripheral Addresses*/
+u32 USART_Peri_Add[3]={0x40011000,0x40004400,0x40011400};
+
+/*Array of USART Peripheral Configured Frequencies*/
+u32 USART_Freq[3]={F_USART1,F_USART2,F_USART6};
+
+
+/**
+ * @brief   Initializes a single USART peripheral 
+ *
+ * @param   - cfg: Pointer to Struct that stores configuration for a UART channel
+ *
+ * @return  Error Status 
+ */
+USART_ErrorStatus_t USART_Init(USART_PostCompileCfg_t *cfg)
 {
-    SBK,
-    RWU,
-    RE,
-    TE,
-    IDLEIE,
-    RXNEIE,
-    TCIE,
-    TXEIE,
-    PEIE,
-    PS,
-    PCE,
-    WAKE,
-    M,
-    UE,
-    OVER8 = 15
-} USART_ctrl_pins;
-
-enum
-{
-    PE,
-    FE,
-    NF,
-    ORE,
-    IDLE,
-    RXNE,
-    TC,
-    TXE,
-    LBD,
-    CTS
-} USART_SR_pins;
-enum
-{
-    oversampling_by_16,
-    oversampling_by_8
-};
-/************************************************************************************
- *                                       #defines                                  *
- * **********************************************************************************/
-#define USART1 ((USART_Registers_t *)0x40011000)
-#define USART2 ((USART_Registers_t *)0x40004400)
-#define USART6 ((USART_Registers_t *)0x40011400)
-
-//#define NULL ((void *)0)
-
-#define USART_MASK_TXEIE_ENABLE 0X00000080
-#define USART_MASK_TXEIE_DISABLE 0XFFFFFF7F
-#define USART_MASK_RXNEIE_ENABLE 0X00000020
-#define USART_MASK_RXNEIE_DISABLE 0XFFFFFFDF
-#define USART_MASK_CLEAR_TC 0xFFFFFFBF
-#define USART_DISABLE_PARITY 0xFFFFFBFF
-// #define USART1_READY_BIT                            0b00000001
-#define USART_TXE_FLAG_MASK 0X00000080
-#define USART_RXNE_FLAG_MASK 0X00000020
-
-#define MANTISA_OFFSET 4
-
-#define USART_Busy 1
-#define USART_Ready 0
-/************************************************************************************
- *                                       variables                                  *
- * **********************************************************************************/
-/* variable to save interrupt status which is enable and disable
-for the config of the parameter of the init function*/
-// static interrupt_status interrupt[NUMBER_OF_USART];
-USART_buffer_t volatile usart_buffer;
-USART_buffer_t volatile usart_buffer_rx;
-TXReq_t volatile USART_TXReq[NUMBER_OF_USART] = {
-    {.state = USART_Ready},
-    {.state = USART_Ready},
-    {.state = USART_Ready},
-};
-RXReq_t volatile USART_RXReq[NUMBER_OF_USART] = {
-    {.state = USART_Ready},
-    {.state = USART_Ready},
-    {.state = USART_Ready},
-};
-/************************************************************************************
- *                                       functions                                  *
- * **********************************************************************************/
-USART_ErrorStatus_t USART_InitAsyn(USART_Config_t *ConfigPtr)
-{
-    USART_ErrorStatus_t ErrorStatusLocVar = USART_Ok;
-    if (ConfigPtr == NULL)
+    USART_ErrorStatus_t RET_ErrorStatus=USART_Ok;
+    if(!cfg)
     {
-        ErrorStatusLocVar = USART_NULLPOINTER;
+        RET_ErrorStatus=USART_NullPtr; 
     }
-    else if (ConfigPtr->Channel > USART6_channel)
+    else if(cfg->Channel>USART_CH6)
     {
-        ErrorStatusLocVar = USART_WRONGCHANNEL;
+        RET_ErrorStatus=USART_Nok; 
+    }
+    else if(!(IS_USART_OVERSAMPLING(cfg->OverSampling)))
+    {
+        RET_ErrorStatus=USART_Nok; 
+    }
+    else if(!(IS_USART_WORD_LENGTH(cfg->WordLength)))
+    {
+        RET_ErrorStatus=USART_Nok; 
+    }
+    else if(!(IS_USART_PARITY_SELECT(cfg->ParitySelect)))
+    {
+        RET_ErrorStatus=USART_Nok; 
+    }
+    else if(!(IS_USART_STOP_BITS(cfg->StopBits)))
+    {
+        RET_ErrorStatus=USART_Nok; 
     }
     else
     {
-        /* DIV and Fracion */
-        f32 Loc_OVER8or16 = 0;
-        switch (ConfigPtr->Oversampling_mode)
+        /*Check for Max Baud Rate*/
+        f32 OVER8= (cfg->OverSampling==USART_OVERSAMPLING_16)?0:1;
+        u32 MaxBaudRate= USART_Freq[cfg->Channel]/(8*(2-OVER8));
+        if(cfg->BaudRate>MaxBaudRate)
         {
-        case USART_OVERSAMPLING_16:
-            Loc_OVER8or16 = oversampling_by_16;
-            break;
-        case USART_OVERSAMPLING_8:
-            Loc_OVER8or16 = oversampling_by_8;
-            break;
-        }
-        f32 USARTDIV = ((f32)(F_CLK) / ((ConfigPtr->baudrate) * 8 * (2 - Loc_OVER8or16)));
-        f32 FracionBoundary = (ConfigPtr->Oversampling_mode == USART_OVERSAMPLING_16) ? 16 : 8;
-        /* need to multiply the fraction by 8 or 16 depends on the chosen oversample */
-        u32 DIV_Fraction = (u32)(FracionBoundary * (f32)((f32)USARTDIV - (u32)USARTDIV));
-        u32 MAXVALUE = (ConfigPtr->Oversampling_mode == USART_OVERSAMPLING_16) ? 15 : 7;
-        u32 DIV_Mantissa = 0;
-        if (DIV_Fraction > MAXVALUE)
-        {
-            DIV_Fraction = 0;
-            DIV_Mantissa = (u32)USARTDIV++;
+            RET_ErrorStatus=USART_Nok; 
         }
         else
         {
-            DIV_Mantissa = (u32)USARTDIV;
-        }
-        switch (ConfigPtr->Channel)
-        {
-        case USART1_channel:
-            /* baudrate reg */
-            USART1->USART_BRR = (DIV_Mantissa << MANTISA_OFFSET) | (DIV_Fraction);
-            /* because usart is off so i can use reg direct not in need to temp var
-               because i use struct so i didn't use macros u32 because struct size will be over*/
-            USART1->USART_CR1 = 0;
-            USART1->USART_CR1 |= (ConfigPtr->Oversampling_mode);
-            USART1->USART_CR1 |= (ConfigPtr->Word_length);
-            USART1->USART_CR1 |= (ConfigPtr->Wakeup_method);
-            USART1->USART_CR1 |= (ConfigPtr->Transmitter_enable);
-            USART1->USART_CR1 |= (ConfigPtr->Receiver_enable);
-            /* parity */
-            if (ConfigPtr->Parity_selection == USART_PARITY_NONE)
+            volatile USART_Reg_t *const USART=( volatile USART_Reg_t *)USART_Peri_Add[cfg->Channel];
+            /*Enable USART*/
+            u32 Loc_Reg=USART->CR1;
+            Loc_Reg|=(USART_ENABLE);
+            
+            /*Program Word Length*/
+            Loc_Reg&=~(USART_WORD_LENGTH_MASK);
+            Loc_Reg|=(cfg->WordLength);
+            USART->CR1=Loc_Reg;
+
+            /*Program Number of Stop Bits*/
+            Loc_Reg=USART->CR2;
+            Loc_Reg&=~USART_STOP_BIT_MASK;
+            Loc_Reg|=(cfg->StopBits);
+            USART->CR2=Loc_Reg;
+
+            /*Program Parity Bits*/
+            Loc_Reg=USART->CR1;
+            Loc_Reg&=~USART_PARITY_CONTROL_MASK;
+            if(cfg->ParitySelect==USART_PARITY_NONE)
             {
-                USART1->USART_CR1 &= (USART_PARITY_OFF);
+               Loc_Reg|=USART_PARITY_NONE;
             }
             else
             {
-                USART1->USART_CR1 |= (ConfigPtr->Parity_control_enable);
-                USART1->USART_CR1 |= (ConfigPtr->Parity_selection);
+                Loc_Reg|=USART_PARITY_ON;
+                Loc_Reg&=~USART_PARITY_SELECT_MASK;
+                Loc_Reg|=cfg->ParitySelect;
             }
+            USART->CR1=Loc_Reg;
 
-            USART1->USART_CR2 |= (ConfigPtr->STOP_bits);
-
-            /* clear status reg */
-            USART1->USART_SR = 0;
-            /* enable USART1 */
-            USART1->USART_CR1 |= (ConfigPtr->USART_enable);
-            break;
-        case USART2_channel:
-            /* baudrate reg */
-            USART2->USART_BRR = (DIV_Mantissa << MANTISA_OFFSET) | (DIV_Fraction);
-            /* because usart is off so i can use reg direct not in need to temp var
-               because i use struct so i didn't use macros u32 because struct size will be over*/
-            USART2->USART_CR1 = 0;
-            USART2->USART_CR1 |= (ConfigPtr->Oversampling_mode);
-            USART2->USART_CR1 |= (ConfigPtr->Word_length);
-            USART2->USART_CR1 |= (ConfigPtr->Wakeup_method);
-            USART2->USART_CR1 |= (ConfigPtr->Transmitter_enable);
-            USART2->USART_CR1 |= (ConfigPtr->Receiver_enable);
-            /* parity */
-            if (ConfigPtr->Parity_selection == USART_PARITY_NONE)
+            /*Select Baud Rate*/
+            f32 USARTDIV=((f32)(USART_Freq[cfg->Channel])/((cfg->BaudRate)*8*(2-OVER8)));
+            f32 FracionBoundary=(cfg->OverSampling==USART_OVERSAMPLING_16)?16:8;
+            u32 DIV_Fraction=(u32)(FracionBoundary*(f32)((f32)USARTDIV-(u32)USARTDIV))+1;
+            u32 MAXVALUE=(cfg->OverSampling==USART_OVERSAMPLING_16)?15:7;
+            u32 DIV_Mantissa=0;
+            if(DIV_Fraction>MAXVALUE)
             {
-                USART2->USART_CR1 &= (USART_PARITY_OFF);
+                DIV_Fraction=0;
+                DIV_Mantissa=(u32)USARTDIV+1;
             }
             else
             {
-                USART2->USART_CR1 |= (ConfigPtr->Parity_control_enable);
-                USART2->USART_CR1 |= (ConfigPtr->Parity_selection);
+                DIV_Mantissa= (u32)USARTDIV;
             }
 
-            USART2->USART_CR2 |= (ConfigPtr->STOP_bits);
+            Loc_Reg=USART->BRR;
+            Loc_Reg&=~USART_DIV_MANTISSA_MASK;
+            Loc_Reg|=DIV_Mantissa<<SHIFT_FOUR;
 
-            /* clear status reg */
-            USART2->USART_SR = 0;
-            /* enable USART2 */
-            USART2->USART_CR1 |= (ConfigPtr->USART_enable);
-            break;
-        case USART6_channel:
-            /* baudrate reg */
-            USART6->USART_BRR = (DIV_Mantissa << MANTISA_OFFSET) | (DIV_Fraction);
-            /* because usart is off so i can use reg direct not in need to temp var
-               because i use struct so i didn't use macros u32 because struct size will be over*/
-            USART6->USART_CR1 = 0;
-            USART6->USART_CR1 |= (ConfigPtr->Oversampling_mode);
-            USART6->USART_CR1 |= (ConfigPtr->Word_length);
-            USART6->USART_CR1 |= (ConfigPtr->Wakeup_method);
-            USART6->USART_CR1 |= (ConfigPtr->Transmitter_enable);
-            USART6->USART_CR1 |= (ConfigPtr->Receiver_enable);
-            /* parity */
-            if (ConfigPtr->Parity_selection == USART_PARITY_NONE)
-            {
-                USART6->USART_CR1 &= (USART_PARITY_OFF);
-            }
-            else
-            {
-                USART6->USART_CR1 |= (ConfigPtr->Parity_control_enable);
-                USART6->USART_CR1 |= (ConfigPtr->Parity_selection);
-            }
+            Loc_Reg&=~USART_DIV_FRACTION_MASK;
+            Loc_Reg|=DIV_Fraction;
 
-            USART6->USART_CR2 |= (ConfigPtr->STOP_bits);
+            USART->BRR=Loc_Reg;
 
-            /* clear status reg */
-            USART6->USART_SR = 0;
+            /*Enable Transmitter to Begin Idle State*/
+            Loc_Reg=USART->CR1;
+            Loc_Reg|=USART_TX_ENABLE;
 
-            USART6->USART_CR1 |= (ConfigPtr->USART_enable);
-            break;
-        }
+            /*Enable Receiver to Start Searching for Start Bit*/
+            Loc_Reg|=USART_RX_ENABLE;
+            USART->CR1=Loc_Reg;
+        } 
     }
-    return ErrorStatusLocVar;
+    return RET_ErrorStatus;
 }
-/************************************************************************************************************************/
-USART_ErrorStatus_t USART_TxBufferAsyncZeroCopy(USART_Channels_t Channel, u8 *buffer, u16 len, TxCB cbf)
+
+/**
+ * @brief   - Takes a Buffer of Bytes to Transmit Asynchronously via a USART Peripheral
+ *          - Jumps to USART ISR after every byte successfully sent
+ *
+ * @param   - 1) USART_Num:
+ *                     1) USART_CH1    
+ *                     2) USART_CH2   
+ *                     3) USART_CH6  
+ * 
+ *          - 2) buffer: Pointer to a character/string to transmit asynchronously via USART
+ * 
+ *          - 3) len: Length of buffer
+ * 
+ *          - 4) cbf: Callback Function to call after transmission of buffer
+ *                            
+ * @return  Error Status 
+ */
+USART_ErrorStatus_t USART_TxBufferAsyncZeroCopy(u8 USART_Num,u8*buffer, u16 len, fnpointer cbf )
 {
-    USART_ErrorStatus_t ErrorStatusLocVar = USART_Ok;
-    if (buffer == NULL)
+    USART_ErrorStatus_t RetErrorStatus=USART_Ok;
+    if(!buffer)
     {
-        ErrorStatusLocVar = USART_NULLPOINTER;
+        RetErrorStatus=USART_NullPtr;
     }
-    else if ((Channel != USART1_channel) && (Channel != USART2_channel) && (Channel != USART6_channel))
+    else if(!(USART_Num==USART_CH1)||(USART_Num==USART_CH2)||(USART_Num==USART_CH6))
     {
-        ErrorStatusLocVar = USART_WRONGCHANNEL;
+        RetErrorStatus=USART_Nok;
     }
     else
-    {
-        if ((USART_TXReq[Channel].state) == USART_Ready)
+    {        
+        if((USART_TxBuffer[USART_Num].state)==ready)
         {
-            switch (Channel)
-            {
-            case USART1_channel:
-                USART_TXReq[Channel].state = USART_Busy;
+            USART_TxBuffer[USART_Num].state=busy;
+            volatile USART_Reg_t *const USART=( volatile USART_Reg_t *)USART_Peri_Add[USART_Num];
 
-                
+            /*Copy User Request Data*/
+            USART_TxBuffer[USART_Num].data=buffer;
+            USART_TxBuffer[USART_Num].len=len;
+            USART_TxBuffer[USART_Num].cbf=cbf;
 
-                usart_buffer.data = buffer;
-                usart_buffer.size = len;
-                usart_buffer.pos = 0;
+            /*Reset Byte Position Index*/
+            USART_TxBuffer[USART_Num].pos=0;
+            
+            /*Send First Byte to Trigger Interrupt*/
+            USART->DR=(USART_TxBuffer[USART_Num].data[USART_TxBuffer[USART_Num].pos++]);
 
-                // TXReq_t USART_TXReq;
-                USART_TXReq[Channel].buffer = &usart_buffer;
-
-                // USART_TXReq[Channel].buffer->data = buffer;
-                // USART_TXReq[Channel].buffer->size = len;
-                USART_TXReq[Channel].cb = cbf;
-                // USART_TXReq[Channel].buffer->pos = 0;
-                USART_TXReq[Channel].state = USART_Busy;
-                
-                USART1->USART_DR = USART_TXReq[Channel].buffer->data[0];
-                USART_TXReq[Channel].buffer->pos++;
-                USART1->USART_CR1 |= USART_TXE_INTERRUPT_ENABLE;
-                break;
-            case USART2_channel:
-                USART_TXReq[Channel].state = USART_Busy;
-
-                
-
-                // USART_buffer_t usart_buffer;
-                usart_buffer.data = buffer;
-                usart_buffer.size = len;
-                usart_buffer.pos = 0;
-
-                USART_TXReq[Channel].buffer = &usart_buffer;
-
-                // USART_TXReq[Channel].buffer->data = buffer;
-                // USART_TXReq[Channel].buffer->size = len;
-                USART_TXReq[Channel].cb = cbf;
-                // USART_TXReq[Channel].buffer->pos = 0;
-                USART_TXReq[Channel].state = USART_Busy;
-
-                USART2->USART_DR = USART_TXReq[Channel].buffer->data[0];
-                USART_TXReq[Channel].buffer->pos++;
-                USART2->USART_CR1 |= USART_TXE_INTERRUPT_ENABLE;
-                break;
-            case USART6_channel:
-                USART_TXReq[Channel].state = USART_Busy;
-
-                // USART_buffer_t usart_buffer;
-                usart_buffer.data = buffer;
-                usart_buffer.size = len;
-                usart_buffer.pos = 0;
-
-                USART_TXReq[Channel].buffer = &usart_buffer;
-
-                // USART_TXReq[Channel].buffer->data = buffer;
-                // USART_TXReq[Channel].buffer->size = len;
-                USART_TXReq[Channel].cb = cbf;
-                // USART_TXReq[Channel].buffer->pos = 0;
-                USART_TXReq[Channel].state = USART_Busy;
-
-                USART6->USART_DR = USART_TXReq[Channel].buffer->data[0];
-                USART_TXReq[Channel].buffer->pos++;
-
-                USART6->USART_CR1 |= USART_TXE_INTERRUPT_ENABLE;
-                break;
-            }
+            /*Enable Transmit Interrupt*/
+            u32 Loc_Reg=USART->CR1;
+            Loc_Reg&=~USART_TXE_INT_ENABLE_MASK;
+            Loc_Reg|=USART_TXE_INTERRUPT_ENABLE;
+            USART->CR1=Loc_Reg;
         }
         else
         {
-            ErrorStatusLocVar = USART_BUSY;
+            RetErrorStatus=USART_Nok;
         }
-    }
-
-    return ErrorStatusLocVar;
+    }    
+    
+    return RetErrorStatus;
 }
-/************************************************************************************************************************/
-USART_ErrorStatus_t USART_RxBufferAsyncZeroCopy(USART_Channels_t Channel, u8 *buffer, u16 len, RxCB cbf)
+
+/**
+ * @brief   - Takes a Buffer of Bytes to Store received Bytes (of size "len") Asynchronously via a USART Peripheral 
+ *          - Jumps to USART ISR after every byte successfully received
+ *
+ * @param   - 1) USART_Num:
+ *                     1) USART_CH1    
+ *                     2) USART_CH2   
+ *                     3) USART_CH6  
+ * 
+ *          - 2) buffer: Pointer to a character/string to store received buffer 
+ * 
+ *          - 3) len: Length of buffer to receive
+ * 
+ *          - 4) cbf: Callback Function to call after receiving of buffer
+ *                            
+ * @return  Error Status 
+ */
+USART_ErrorStatus_t USART_RxBufferAsyncZeroCopy(u8 USART_Num,u8*buffer, u16 len, fnpointer cbf)
 {
-    USART_ErrorStatus_t ErrorStatusLocVar = USART_Ok;
-    if (buffer == NULL)
+    USART_ErrorStatus_t RetErrorStatus=USART_Ok;
+    if(!buffer)
     {
-        ErrorStatusLocVar = USART_NULLPOINTER;
+        RetErrorStatus=USART_NullPtr;
     }
-    else if ((Channel != USART1_channel) && (Channel != USART2_channel) && (Channel != USART6_channel))
+    else if(!(USART_Num==USART_CH1)||(USART_Num==USART_CH2)||(USART_Num==USART_CH6))
     {
-        ErrorStatusLocVar = USART_WRONGCHANNEL;
+        RetErrorStatus=USART_Nok;
     }
     else
     {
-        if ((USART_RXReq[Channel].state) == USART_Ready)
+        if((USART_RxBuffer[USART_Num].state==ready))
         {
-            // USART_buffer_t usart_buffer;
-            switch (Channel)
-            {
-            case USART1_channel:
-                USART_RXReq[Channel].state = USART_Busy;
+            volatile USART_Reg_t *const USART=( volatile USART_Reg_t *)USART_Peri_Add[USART_Num];
 
-                USART1->USART_CR1 &= USART_RXNE_INT_DISABLE;
+            /*Disable Receive Interrupt*/
+            u32 Loc_Reg=USART->CR1;
+            Loc_Reg&=~USART_RXNE_INT_ENABLE_MASK;
+            Loc_Reg|=USART_RXNE_INT_DISABLE;
+            USART->CR1=Loc_Reg;
+            USART_RxBuffer[USART_Num].state=busy;
 
-                usart_buffer_rx.data = buffer;
-                usart_buffer_rx.size = len;
-                usart_buffer_rx.pos = 0;
+            /*Copy User Request Data*/
+            USART_RxBuffer[USART_Num].data=buffer;
+            USART_RxBuffer[USART_Num].len=len;
+            USART_RxBuffer[USART_Num].cbf=cbf;
 
-                // TXReq_t USART_TXReq;
-                USART_RXReq[Channel].buffer = &usart_buffer_rx;
-
-                // USART_TXReq[Channel].buffer->data = buffer;
-                // USART_TXReq[Channel].buffer->size = len;
-                USART_RXReq[Channel].cb = cbf;
-                // USART_TXReq[Channel].buffer->pos = 0;
-                USART_RXReq[Channel].state = USART_Busy;
-
-                USART1->USART_CR1 |= USART_RXNE_INT_ENABLE;
-                break;
-            case USART2_channel:
-                USART_RXReq[Channel].state = USART_Busy;
-
-                USART2->USART_CR1 &= USART_RXNE_INT_DISABLE;
-
-                // USART_buffer_t usart_buffer;
-                usart_buffer_rx.data = buffer;
-                usart_buffer_rx.size = len;
-                usart_buffer_rx.pos = 0;
-
-                // TXReq_t USART_TXReq;
-                USART_RXReq[Channel].buffer = &usart_buffer_rx;
-
-                // USART_TXReq[Channel].buffer->data = buffer;
-                // USART_TXReq[Channel].buffer->size = len;
-                USART_RXReq[Channel].cb = cbf;
-                // USART_TXReq[Channel].buffer->pos = 0;
-                USART_RXReq[Channel].state = USART_Busy;
-
-                USART2->USART_CR1 |= USART_RXNE_INT_ENABLE;
-                break;
-            case USART6_channel:
-                USART_RXReq[Channel].state = USART_Busy;
-
-                USART6->USART_CR1 &= USART_RXNE_INT_DISABLE;
-
-                // USART_buffer_t usart_buffer;
-                usart_buffer_rx.data = buffer;
-                usart_buffer_rx.size = len;
-                usart_buffer_rx.pos = 0;
-
-                // TXReq_t USART_TXReq;
-                USART_RXReq[Channel].buffer = &usart_buffer_rx;
-
-                // USART_TXReq[Channel].buffer->data = buffer;
-                // USART_TXReq[Channel].buffer->size = len;
-                USART_RXReq[Channel].cb = cbf;
-                // USART_TXReq[Channel].buffer->pos = 0;
-                USART_RXReq[Channel].state = USART_Busy;
-
-                USART6->USART_CR1 |= USART_RXNE_INT_ENABLE;
-                break;
-            }
+            /*Reset Byte Position Index*/
+            USART_RxBuffer[USART_Num].pos=0;
+        
+            /*Enable Receive Interrupt*/
+            Loc_Reg=USART->CR1;
+            Loc_Reg&=~USART_RXNE_INT_ENABLE_MASK;
+            Loc_Reg|=USART_RXNE_INT_ENABLE;
+            USART->CR1=Loc_Reg;
         }
         else
         {
-            ErrorStatusLocVar = USART_BUSY;
-        }
+            RetErrorStatus=USART_Nok;
+        } 
     }
+    return RetErrorStatus;
 
-    return ErrorStatusLocVar;
 }
 
-/***************************************************************************************************************/
-USART_ErrorStatus_t USART_SendByte(USART_Channels_t Channel, u8 buffer)
+/**
+ * @brief   Sends a Byte over a USART Channel 
+ *
+ * @param   - 1) USART_Num:
+ *                     1) USART_CH1    
+ *                     2) USART_CH2   
+ *                     3) USART_CH6  
+ * 
+ *          - 2) byte: Data to send
+ * 
+ * @return  Error Status: Returns if Data is successfully transmitted or not
+ */
+USART_ErrorStatus_t USART_SendByte(u8 USART_Num,u8 byte)
 {
-    USART_ErrorStatus_t ErrorStatusLocVar = USART_Ok;
-    if ((Channel != USART1_channel) && (Channel != USART2_channel) && (Channel != USART6_channel))
+    USART_ErrorStatus_t RetErrorStatus=USART_Ok;
+    if(!(USART_Num==USART_CH1)||(USART_Num==USART_CH2)||(USART_Num==USART_CH6))
     {
-        ErrorStatusLocVar = USART_WRONGCHANNEL;
+        RetErrorStatus=USART_Nok;
     }
     else
     {
-        u32 Timeout = 16000;
-        switch (Channel)
+        volatile USART_Reg_t *const USART=( volatile USART_Reg_t *)USART_Peri_Add[USART_Num];
+        u16 Timeout=3000;
+        if(USART_TxBuffer[USART_Num].state==ready)
         {
-        case USART1_channel:
-            if (USART_TXReq[Channel].state == USART_Ready)
+            USART_TxBuffer[USART_Num].state=busy;
+            USART->DR=byte;
+            while(Timeout--&&(!(USART->SR&USART_TXE_FLAG_MASK)));
+            if(USART->SR&USART_TXE_FLAG_MASK)
             {
-                USART_TXReq[Channel].state = USART_Busy;
-                USART1->USART_DR = buffer;
-                while (Timeout-- && (!(USART1->USART_SR & USART_TXE_FLAG_MASK)))
-                    ;
-                USART_TXReq[Channel].state = USART_Ready;
-                if (!(USART1->USART_SR & USART_TXE_FLAG_MASK))
-                {
-                    ErrorStatusLocVar = USART_TIMEOUT;
-                }
+                //Byte Transferred
             }
             else
             {
-                ErrorStatusLocVar = USART_BUSY;
+                //Timeout Reached
+                RetErrorStatus=USART_Nok;
             }
-            break;
-        case USART2_channel:
-            if (USART_TXReq[Channel].state == USART_Ready)
-            {
-                USART_TXReq[Channel].state = USART_Busy;
-                USART2->USART_DR = buffer;
-                while (Timeout-- && (!(USART2->USART_SR & USART_TXE_FLAG_MASK)))
-                    ;
-                USART_TXReq[Channel].state = USART_Ready;
-                if (!(USART2->USART_SR & USART_TXE_FLAG_MASK))
-                {
-                    ErrorStatusLocVar = USART_TIMEOUT;
-                }
-            }
-            else
-            {
-                ErrorStatusLocVar = USART_BUSY;
-            }
-            break;
-        case USART6_channel:
-            if (USART_TXReq[Channel].state == USART_Ready)
-            {
-                USART_TXReq[Channel].state = USART_Busy;
-                USART6->USART_DR = buffer;
-                while (Timeout-- && (!(USART6->USART_SR & USART_TXE_FLAG_MASK)))
-                    ;
-                USART_TXReq[Channel].state = USART_Ready;
-                if (!(USART6->USART_SR & USART_TXE_FLAG_MASK))
-                {
-                    ErrorStatusLocVar = USART_TIMEOUT;
-                }
-            }
-            else
-            {
-                ErrorStatusLocVar = USART_BUSY;
-            }
-            break;
-        default:
-            break;
+            USART_TxBuffer[USART_Num].state=ready;
         }
     }
-    return ErrorStatusLocVar;
+    return RetErrorStatus;
 }
-/***************************************************************************************************************/
-USART_ErrorStatus_t USART_ReceiveByte(USART_Channels_t Channel, u8 *buffer)
+
+/**
+ * @brief   Received a byte over a USART Channel 
+ *
+ * @param   - 1) USART_Num:
+ *                     1) USART_CH1    
+ *                     2) USART_CH2   
+ *                     3) USART_CH6  
+ * 
+ *          - 2) byte: Pointer to variable to store received data
+ * 
+ * @return  Error Status: Returns if Data is successfully received or not
+ */
+USART_ErrorStatus_t USART_GetByte(u8 USART_Num,u8*byte)
 {
-    USART_ErrorStatus_t ErrorStatusLocVar = USART_Ok;
-    if (buffer == NULL)
+    USART_ErrorStatus_t RetErrorStatus=USART_Ok;
+    if(!byte)
     {
-        ErrorStatusLocVar = USART_NULLPOINTER;
+        RetErrorStatus=USART_Nok;
     }
-    else if ((Channel != USART1_channel) && (Channel != USART2_channel) && (Channel != USART6_channel))
+    else if(!(USART_Num==USART_CH1)||(USART_Num==USART_CH2)||(USART_Num==USART_CH6))
     {
-        ErrorStatusLocVar = USART_WRONGCHANNEL;
+        RetErrorStatus=USART_Nok;
     }
     else
     {
-        u32 Timeout = 16000;
-        switch (Channel)
+        volatile USART_Reg_t *const USART=( volatile USART_Reg_t *)USART_Peri_Add[USART_Num];
+        u16 Timeout=3000;
+        if(USART_RxBuffer[USART_Num].state==ready)
         {
-        case USART1_channel:
-            if (USART_RXReq[Channel].state == USART_Ready)
+            USART_RxBuffer[USART_Num].state=busy;
+            while(Timeout--&&(!(USART->SR&USART_RXNE_FLAG_MASK)));
+            if(USART->SR&USART_RXNE_FLAG_MASK)
             {
-                USART_RXReq[Channel].state = USART_Busy;
-                /* if timeout=0 or RXNE = 1 then it received */
-                while (Timeout-- && (!(USART1->USART_SR & USART_RXNE_FLAG_MASK)))
-                    ;
-                USART_TXReq[Channel].state = USART_Ready;
-                if (USART1->USART_SR & USART_TXE_FLAG_MASK)
-                {
-                    *buffer = USART1->USART_DR;
-                }
-                else
-                {
-                    ErrorStatusLocVar = USART_TIMEOUT;
-                }
+                *byte=(u8)USART->DR;
             }
             else
             {
-                ErrorStatusLocVar = USART_BUSY;
+                //Timeout Reached
+                RetErrorStatus=USART_Nok;
             }
-            break;
-        case USART2_channel:
-            if (USART_RXReq[Channel].state == USART_Ready)
-            {
-                USART_RXReq[Channel].state = USART_Busy;
-                /* if timeout=0 or RXNE = 1 then it received */
-                while (Timeout-- && (!(USART2->USART_SR & USART_RXNE_FLAG_MASK)))
-                    ;
-                USART_TXReq[Channel].state = USART_Ready;
-                if (USART2->USART_SR & USART_TXE_FLAG_MASK)
-                {
-                    *buffer = USART2->USART_DR;
-                }
-                else
-                {
-                    ErrorStatusLocVar = USART_TIMEOUT;
-                }
-            }
-            else
-            {
-                ErrorStatusLocVar = USART_BUSY;
-            }
-            break;
-        case USART6_channel:
-            if (USART_RXReq[Channel].state == USART_Ready)
-            {
-                USART_RXReq[Channel].state = USART_Busy;
-                /* if timeout=0 or RXNE = 1 then it received */
-                while (Timeout-- && (!(USART6->USART_SR & USART_RXNE_FLAG_MASK)))
-                    ;
-                USART_TXReq[Channel].state = USART_Ready;
-                if (USART6->USART_SR & USART_TXE_FLAG_MASK)
-                {
-                    *buffer = USART6->USART_DR;
-                }
-                else
-                {
-                    ErrorStatusLocVar = USART_TIMEOUT;
-                }
-            }
-            else
-            {
-                ErrorStatusLocVar = USART_BUSY;
-            }
-            break;
-        default:
-            break;
+            USART_RxBuffer[USART_Num].state=ready;
         }
+        
     }
-    return ErrorStatusLocVar;
+    return RetErrorStatus;
 }
-/***************************************************************************************************************/
+
+/**
+ * @brief: USART1 Handler:
+ *             1) Transmittion Buffer Empty (Data Transmission of 1 byte)
+ *             2) Receiver Buffer Not Empty (1 byte of Data Received)
+*/
 void USART1_IRQHandler(void)
 {
-    /* If tx flag is fired */
-    if ((USART1->USART_SR & USART_TXE_FLAG_MASK))
-    {
-        if (USART_TXReq[USART1_channel].buffer->pos < USART_TXReq[USART1_channel].buffer->size)
+        /*If Data is Transferred to the Shift Register*/
+        if((USART1->SR&USART_TXE_FLAG_MASK))
         {
-            //USART1->USART_SR &= ~(1 << 6);
-            USART1->USART_DR = USART_TXReq[USART1_channel].buffer->data[USART_TXReq[USART1_channel].buffer->pos++];
-        }
-        else
-        {
-            USART_TXReq[USART1_channel].state = USART_Ready;
-            USART_TXReq[USART1_channel].buffer->pos = 0;
+                /*Check on Length( If More Bytes to Send)*/
+                if(USART_TxBuffer[USART_CH1].pos<USART_TxBuffer[USART_CH1].len)
+                {
+                    /*Write Data to Data Register, Flag is Automatically Cleared*/
+                    USART1->DR= (USART_TxBuffer[USART_CH1].data[USART_TxBuffer[USART_CH1].pos++]);
 
-            USART1->USART_SR &= ~(1 << 6);
-            USART1->USART_CR1 &= USART_TXE_INTERRUPT_DISABLE;
+                }
+                
+                /*All Bytes Sent*/
+                else
+                {
+                    /*Disable Transmit Interrupt*/
+                    u32 Loc_Reg=USART1->CR1;
+                    Loc_Reg&=~USART_TXE_INT_ENABLE_MASK;
+                    Loc_Reg|=USART_TXE_INTERRUPT_DISABLE;
+                    USART1->CR1=Loc_Reg;
 
-            if (USART_TXReq[USART1_channel].cb)
-            {
-                USART_TXReq[USART1_channel].cb();
-            }
+                    USART_TxBuffer[USART_CH1].state=ready;
+                    USART_TxBuffer[USART_CH1].pos=0;
+                    /*Check on NULL*/
+                    if(USART_TxBuffer[USART_CH1].cbf)
+                    {
+                        USART_TxBuffer[USART_CH1].cbf();
+                    }
+                }
         }
-    }
 
-    /* If rx flag is fired */
-    if (USART1->USART_SR & USART_RXNE_FLAG_MASK)
-    {
-        if (USART_RXReq[USART1_channel].buffer->pos < USART_RXReq[USART1_channel].buffer->size)
+        /*Unread Data in Receive Buffer*/
+        if(USART1->SR&USART_RXNE_FLAG_MASK)
         {
-            USART_RXReq[USART1_channel].buffer->data[USART_RXReq[USART1_channel].buffer->pos++] = USART1->USART_DR;
+                /*Check on Length*/
+                if(USART_RxBuffer[USART_CH1].pos<USART_RxBuffer[USART_CH1].len)
+                {
+                    /*Read data from Buffer, Flag is automatically cleared*/
+                    USART_RxBuffer[USART_CH1].data[USART_RxBuffer[USART_CH1].pos++]=(u8)USART1->DR;
+                }
+                if(USART_RxBuffer[USART_CH1].pos==USART_RxBuffer[USART_CH1].len)
+                {
+                    /*Disable Receive Interrupt*/
+                    u32 Loc_Reg=USART1->CR1;
+                    Loc_Reg&=~USART_RXNE_INT_ENABLE_MASK;
+                    Loc_Reg|=USART_RXNE_INT_DISABLE;
+                    USART1->CR1=Loc_Reg;
+
+                    USART_RxBuffer[USART_CH1].state=ready;
+                    USART_RxBuffer[USART_CH1].pos=0;
+                    /*Check on NULL*/
+                    if(USART_RxBuffer[USART_CH1].cbf)
+                    {
+                        USART_RxBuffer[USART_CH1].cbf();
+                    }
+                }
         }
-        if (USART_RXReq[USART1_channel].buffer->pos == USART_RXReq[USART1_channel].buffer->size)
-        {
-            USART1->USART_SR &= ~(1 << 5);
-            USART1->USART_CR1 &= USART_RXNE_INT_DISABLE;
-            USART_RXReq[USART1_channel].state = USART_Ready;
-            USART_RXReq[USART1_channel].buffer->pos = 0;
-            if (USART_RXReq[USART1_channel].cb)
-            {
-                USART_RXReq[USART1_channel].cb();
-            }
-        }
-    }
+   
 }
-/***************************************************************************************************************/
+
+/**
+ * @brief: USART2 Handler:
+ *             1) Transmittion Buffer Empty (Data Transmission of 1 byte)
+ *             2) Receiver Buffer Not Empty (1 byte of Data Received)
+*/
 void USART2_IRQHandler(void)
 {
-    /* If tx flag is fired */
-    if ((USART2->USART_SR & USART_TXE_FLAG_MASK))
+    /*If Data is Transferred to the Shift Register*/
+    if((USART2->SR & USART_TXE_FLAG_MASK))
     {
-
-        if (USART_TXReq[USART2_channel].buffer->pos < USART_TXReq[USART2_channel].buffer->size)
+        /*Check on Length( If More Bytes to Send)*/
+        if(USART_TxBuffer[USART_CH2].pos < USART_TxBuffer[USART_CH2].len)
         {
-            USART2->USART_DR = USART_TXReq[USART2_channel].buffer->data[USART_TXReq[USART2_channel].buffer->pos++];
+            /*Write Data to Data Register, Flag is Automatically Cleared*/
+            USART2->DR = (USART_TxBuffer[USART_CH2].data[USART_TxBuffer[USART_CH2].pos++]);
         }
+        /*All Bytes Sent*/
         else
         {
-            USART_TXReq[USART2_channel].state = USART_Ready;
-            USART_TXReq[USART2_channel].buffer->pos = 0;
+            /*Disable Transmit Interrupt*/
+            u32 Loc_Reg=USART1->CR1;
+            Loc_Reg&=~USART_TXE_INT_ENABLE_MASK;
+            Loc_Reg|=USART_TXE_INTERRUPT_DISABLE;
+            USART1->CR1=Loc_Reg;
 
-            if (USART_TXReq[USART2_channel].cb)
+            USART_TxBuffer[USART_CH2].state = ready;
+            USART_TxBuffer[USART_CH2].pos = 0;
+            /*Check on NULL*/
+            if(USART_TxBuffer[USART_CH2].cbf)
             {
-                USART_TXReq[USART2_channel].cb();
+                USART_TxBuffer[USART_CH2].cbf();
             }
         }
     }
 
-    /* If rx flag is fired */
-    if (USART2->USART_SR & USART_RXNE_FLAG_MASK)
+    /*Unread Data in Receive Buffer*/
+    if(USART2->SR & USART_RXNE_FLAG_MASK)
     {
-        if (USART_RXReq[USART2_channel].buffer->pos < USART_RXReq[USART2_channel].buffer->size)
+        /*Check on Length*/
+        if(USART_RxBuffer[USART_CH2].pos < USART_RxBuffer[USART_CH2].len)
         {
-
-            USART_RXReq[USART2_channel].buffer->data[USART_RXReq[USART2_channel].buffer->pos++] = USART2->USART_DR;
+            /*Read data from Buffer, Flag is automatically cleared*/
+            USART_RxBuffer[USART_CH2].data[USART_RxBuffer[USART_CH2].pos++] = (u8)USART2->DR;
         }
-        else
+        if(USART_RxBuffer[USART_CH2].pos == USART_RxBuffer[USART_CH2].len)
         {
-            USART_RXReq[USART2_channel].state = USART_Ready;
-            USART_RXReq[USART2_channel].buffer->pos = 0;
-
-            if (USART_RXReq[USART2_channel].cb)
+            USART_RxBuffer[USART_CH2].state = ready;
+            USART_RxBuffer[USART_CH2].pos = 0;
+            /*Check on NULL*/
+            if(USART_RxBuffer[USART_CH2].cbf)
             {
-                USART_RXReq[USART2_channel].cb();
+                USART_RxBuffer[USART_CH2].cbf();
             }
         }
     }
+
 }
-/***************************************************************************************************************/
+
+/**
+ * @brief: USART6 Handler:
+ *             1) Transmittion Buffer Empty (Data Transmission of 1 byte)
+ *             2) Receiver Buffer Not Empty (1 byte of Data Received)
+*/
 void USART6_IRQHandler(void)
 {
-    /* If tx flag is fired */
-    if ((USART6->USART_SR & USART_TXE_FLAG_MASK))
+    /*If Data is Transferred to the Shift Register*/
+    if((USART6->SR & USART_TXE_FLAG_MASK))
     {
-
-        if (USART_TXReq[USART6_channel].buffer->pos < USART_TXReq[USART6_channel].buffer->size)
+        /*Check on Length( If More Bytes to Send)*/
+        if(USART_TxBuffer[USART_CH6].pos < USART_TxBuffer[USART_CH6].len)
         {
-            USART6->USART_DR = USART_TXReq[USART6_channel].buffer->data[USART_TXReq[USART6_channel].buffer->pos++];
+            /*Write Data to Data Register, Flag is Automatically Cleared*/
+            USART6->DR = (USART_TxBuffer[USART_CH6].data[USART_TxBuffer[USART_CH6].pos++]);
         }
+        /*All Bytes Sent*/
         else
         {
-            USART_TXReq[USART6_channel].state = USART_Ready;
-            USART_TXReq[USART6_channel].buffer->pos = 0;
+            /*Disable Transmit Interrupt*/
+            u32 Loc_Reg=USART1->CR1;
+            Loc_Reg&=~USART_TXE_INT_ENABLE_MASK;
+            Loc_Reg|=USART_TXE_INTERRUPT_DISABLE;
+            USART1->CR1=Loc_Reg;
 
-            if (USART_TXReq[USART6_channel].cb)
+            USART_TxBuffer[USART_CH6].state = ready;
+            USART_TxBuffer[USART_CH6].pos = 0;
+            /*Check on NULL*/
+            if(USART_TxBuffer[USART_CH6].cbf)
             {
-                USART_TXReq[USART6_channel].cb();
+                USART_TxBuffer[USART_CH6].cbf();
             }
         }
     }
 
-    /* If rx flag is fired */
-    if (USART6->USART_SR & USART_RXNE_FLAG_MASK)
+    /*Unread Data in Receive Buffer*/
+    if(USART6->SR & USART_RXNE_FLAG_MASK)
     {
-        if (USART_RXReq[USART6_channel].buffer->pos < USART_RXReq[USART6_channel].buffer->size)
+        /*Check on Length*/
+        if(USART_RxBuffer[USART_CH6].pos < USART_RxBuffer[USART_CH6].len)
         {
-
-            USART_RXReq[USART6_channel].buffer->data[USART_RXReq[USART6_channel].buffer->pos++] = USART6->USART_DR;
+            /*Read data from Buffer, Flag is automatically cleared*/
+            USART_RxBuffer[USART_CH6].data[USART_RxBuffer[USART_CH6].pos++] = (u8)USART6->DR;
         }
-        else
+        if(USART_RxBuffer[USART_CH6].pos == USART_RxBuffer[USART_CH6].len)
         {
-            USART_RXReq[USART6_channel].state = USART_Ready;
-            USART_RXReq[USART6_channel].buffer->pos = 0;
-
-            if (USART_RXReq[USART6_channel].cb)
+            USART_RxBuffer[USART_CH6].state = ready;
+            USART_RxBuffer[USART_CH6].pos = 0;
+            /*Check on NULL*/
+            if(USART_RxBuffer[USART_CH6].cbf)
             {
-                USART_RXReq[USART6_channel].cb();
+                USART_RxBuffer[USART_CH6].cbf();
             }
         }
     }
+
 }
-// USART_ErrorStatus_t USART_Init(const USART_Config_t* ConfigPtr){
-//     USART_ErrorStatus_t ErrorStatusLocVar = USART_Ok;
-//     u32 Loc_u32TempValue;
-//     u16 Loc_u16TempFraction;
-//     u16 Loc_u16TempMantissa;
-
-//     if(ConfigPtr == NULL)
-// 	{
-// 		ErrorStatusLocVar = USART_NULLPOINTER;
-// 	}
-//     else if(F_CLK >84000000){
-//         ErrorStatusLocVar = USART_WRONGFREQ;
-//     }
-//     else{
-//         /* DIV and Fracion */
-//         Loc_u32TempValue = ((u64)F_CLK * 1000) / (ConfigPtr->baudrate * (8 * (2 - ConfigPtr->Oversampling_mode)));
-//         /* in O.S 8 so it has 3 bit fraction and in O.S 16 so it has 4 bit fraction */
-//         Loc_u16TempFraction = (Loc_u32TempValue % 1000) * (8 * (2 - ConfigPtr->Oversampling_mode));
-// 		Loc_u16TempFraction = Loc_u16TempFraction / 1000;
-//         /* mantisa value */
-//         Loc_u16TempMantissa = Loc_u32TempValue / 1000;
-//         /* fraction */
-//         if(ConfigPtr->Oversampling_mode ==  oversampling_by_16){
-//             /* if fraction >16 which mean more than 4 bits for fraction */
-//             if(Loc_u16TempFraction > 0xF)
-//             {
-//                 Loc_u16TempMantissa++;
-//                 Loc_u16TempFraction = 0;
-//             }
-//         }
-//         else if(ConfigPtr->Oversampling_mode ==  oversampling_by_8){
-//             /* if fraction >8 which mean more than 3 bits for fraction */
-//             if(Loc_u16TempFraction > 0x7)
-//             {
-//                 Loc_u16TempMantissa++;
-//                 Loc_u16TempFraction = 0;
-//             }
-//         }
-//         TXReq[USART1_channel].state = USART_Ready;
-//         TXReq[USART2_channel].state = USART_Ready;
-//         TXReq[USART6_channel].state = USART_Ready;
-
-//         switch (ConfigPtr->Channel)
-//         {
-//         case USART1_channel:
-//             /* baudrate reg */
-// 			USART1->USART_BRR = (Loc_u16TempMantissa << 4) | (Loc_u16TempFraction & 0x0F);
-//             /* because usart is off so i can use reg direct not in need to temp var
-//                because i use struct so i didn't use macros u32 because struct size will be over*/
-//             USART1->USART_CR1 = 0;
-//             USART1->USART_CR1 |= (ConfigPtr->Oversampling_mode<<OVER8);
-//             USART1->USART_CR1 |= (ConfigPtr->Word_length<<M);
-//             USART1->USART_CR1 |= (ConfigPtr->Wakeup_method<<WAKE);
-//             USART1->USART_CR1 |= (ConfigPtr->Parity_control_enable<<PCE);
-//             if(ConfigPtr->Parity_selection<<PS == PARITY_EVEN || ConfigPtr->Parity_selection<<PS == PARITY_ODD){
-//                 USART1->USART_CR1 |= (ConfigPtr->Parity_selection<<PS);
-//             }
-//             else{
-//                 USART1->USART_CR1 &= USART_DISABLE_PARITY;
-//             }
-//             USART1->USART_CR1 |= (ConfigPtr->Transmitter_enable<<TE);
-//             USART1->USART_CR1 |= (ConfigPtr->Receiver_enable<<RE);
-//             /* interrupt status */
-//             interrupt[USART1_channel].parity_error = (ConfigPtr->Receiver_enable<<PEIE);
-//             interrupt[USART1_channel].read_empty = (ConfigPtr->Receiver_enable<<RXNEIE);
-//             interrupt[USART1_channel].transmit_empty = (ConfigPtr->Receiver_enable<<TXEIE);
-//             interrupt[USART1_channel].transmission_complete = (ConfigPtr->Receiver_enable<<TCIE);
-//             /* clear status reg */
-//             USART1->USART_SR = 0;
-//             /* enable USART1 */
-//             USART1->USART_CR1 |= (ConfigPtr->USART_enable<<UE);
-//         break;
-//         case USART2_channel:
-//             /* baudrate reg */
-// 			USART2->USART_BRR = (Loc_u16TempMantissa << 4) | (Loc_u16TempFraction & 0x0F);
-//             /* because usart is off so i can use reg direct not in need to temp var
-//                because i use struct so i didn't use macros u32 because struct size will be over*/
-//             USART2->USART_CR1 = 0;
-//             USART2->USART_CR1 |= (ConfigPtr->Oversampling_mode<<OVER8);
-//             USART2->USART_CR1 |= (ConfigPtr->Word_length<<M);
-//             USART2->USART_CR1 |= (ConfigPtr->Wakeup_method<<WAKE);
-//             USART2->USART_CR1 |= (ConfigPtr->Parity_control_enable<<PCE);
-//             if(ConfigPtr->Parity_selection<<PS == PARITY_EVEN || ConfigPtr->Parity_selection<<PS == PARITY_ODD){
-//                 USART2->USART_CR1 |= (ConfigPtr->Parity_selection<<PS);
-//             }
-//             else{
-//                 USART2->USART_CR1 &= USART_DISABLE_PARITY;
-//             }
-//             USART2->USART_CR1 |= (ConfigPtr->Transmitter_enable<<TE);
-//             USART2->USART_CR1 |= (ConfigPtr->Receiver_enable<<RE);
-//              /* interrupt status */
-//             interrupt[USART2_channel].parity_error = (ConfigPtr->Receiver_enable<<PEIE);
-//             interrupt[USART2_channel].read_empty = (ConfigPtr->Receiver_enable<<RXNEIE);
-//             interrupt[USART2_channel].transmit_empty = (ConfigPtr->Receiver_enable<<TXEIE);
-//             interrupt[USART2_channel].transmission_complete = (ConfigPtr->Receiver_enable<<TCIE);
-//             /* clear status reg */
-//             USART2->USART_SR = 0;
-//             /* enable USART2 */
-//             USART2->USART_CR1 |= (ConfigPtr->USART_enable<<UE);
-//         break;
-//         case USART6_channel:
-//             /* baudrate reg */
-// 			USART6->USART_BRR = (Loc_u16TempMantissa << 4) | (Loc_u16TempFraction & 0x0F);
-//             /* because usart is off so i can use reg direct not in need to temp var
-//                because i use struct so i didn't use macros u32 because struct size will be over*/
-//             USART6->USART_CR1 = 0;
-//             USART6->USART_CR1 |= (ConfigPtr->Oversampling_mode<<OVER8);
-//             USART6->USART_CR1 |= (ConfigPtr->Word_length<<M);
-//             USART6->USART_CR1 |= (ConfigPtr->Wakeup_method<<WAKE);
-//             USART6->USART_CR1 |= (ConfigPtr->Parity_control_enable<<PCE);
-//             if(ConfigPtr->Parity_selection<<PS == PARITY_EVEN || ConfigPtr->Parity_selection<<PS == PARITY_ODD){
-//                 USART6->USART_CR1 |= (ConfigPtr->Parity_selection<<PS);
-//             }
-//             else{
-//                 USART6->USART_CR1 &= USART_DISABLE_PARITY;
-//             }
-//             USART6->USART_CR1 |= (ConfigPtr->Transmitter_enable<<TE);
-//             USART6->USART_CR1 |= (ConfigPtr->Receiver_enable<<RE);
-
-//              /* interrupt status */
-//             interrupt[USART6_channel].parity_error = (ConfigPtr->Receiver_enable<<PEIE);
-//             interrupt[USART6_channel].read_empty = (ConfigPtr->Receiver_enable<<RXNEIE);
-//             interrupt[USART6_channel].transmit_empty = (ConfigPtr->Receiver_enable<<TXEIE);
-//             interrupt[USART6_channel].transmission_complete = (ConfigPtr->Receiver_enable<<TCIE);
-//             /* clear status reg */
-//             USART6->USART_SR = 0;
-//             /* enable USART6 */
-//             USART6->USART_CR1 |= (ConfigPtr->USART_enable<<UE);
-//         break;
-//         default:
-//             ErrorStatusLocVar = USART_WRONGCHANNEL;
-//         break;
-//         }
-//     }
-//     return ErrorStatusLocVar;
-// }
-
-// /************************************************* send byte **************************************/
-// USART_ErrorStatus_t USART_SendByteAsynch(USART_Channels_t Channel, u8* buffer, u32 length, TxCB cb){
-//     USART_ErrorStatus_t ErrorStatusLocVar = USART_Ok;
-//     if(buffer == NULL || cb== NULL ){
-//         ErrorStatusLocVar = USART_NULLPOINTER;
-//     }
-//     else if(TXReq[Channel].state == USART_Busy){
-//         ErrorStatusLocVar = USART_BUSY;
-//     }
-//     else{
-//         switch (Channel)
-//         {
-//         case USART1_channel:
-//             /* make TXEIE --> 1*/
-//             USART1->USART_CR1 |= USART_MASK_TXEIE_ENABLE;
-//             if(TXReq[USART1_channel].state == USART_Ready){
-//                 TXReq[USART1_channel].state = USART_Busy;
-//             }
-//             else{
-//                 ErrorStatusLocVar = USART_BUSY;
-//             }
-//             TXReq[USART1_channel].buffer.data = buffer;
-//             TXReq[USART1_channel].buffer.size = length;
-//             TXReq[USART1_channel].buffer.pos = 0;
-//             TXReq[USART1_channel].cb = cb;
-//             USART1->USART_DR = TXReq[USART1_channel].buffer.data[0];
-//             TXReq[USART1_channel].buffer.pos++;
-//         break;
-//         case USART2_channel:
-//             USART2->USART_CR1 |= USART_MASK_TXEIE_ENABLE;
-//             if(TXReq[USART2_channel].state == USART_Ready){
-//                 TXReq[USART2_channel].state = USART_Busy;
-//             }
-//             TXReq[USART2_channel].buffer.data = buffer;
-//             TXReq[USART2_channel].buffer.size = length;
-//             TXReq[USART2_channel].buffer.pos = 0;
-//             TXReq[USART2_channel].cb = cb;
-//             USART2->USART_DR = TXReq[USART2_channel].buffer.data[0];
-//             TXReq[USART2_channel].buffer.pos++;
-//         break;
-//         case USART6_channel:
-//             USART6->USART_CR1 |= USART_MASK_TXEIE_ENABLE;
-//             if(TXReq[USART6_channel].state == USART_Ready){
-//                 TXReq[USART6_channel].state = USART_Busy;
-//             }
-//             TXReq[USART6_channel].buffer.data = buffer;
-//             TXReq[USART6_channel].buffer.size = length;
-//             TXReq[USART6_channel].buffer.pos = 0;
-//             TXReq[USART6_channel].cb = cb;
-//             USART6->USART_DR = TXReq[USART6_channel].buffer.data[0];
-//             TXReq[USART6_channel].buffer.pos++;
-//         break;
-
-//         default:
-//             ErrorStatusLocVar = USART_wrongchannel;
-//         break;
-//         }
-//     }
-
-//     return ErrorStatusLocVar;
-// }
-// /************************************************* receive byte **************************************/
-// USART_ErrorStatus_t USART_ReceiveByteAsynch(USART_Channels_t Channel, u8* buffer, u32 length, RxCB cb){
-//     USART_ErrorStatus_t ErrorStatusLocVar = USART_Ok;
-//     if(buffer == NULL || cb== NULL ){
-//         ErrorStatusLocVar = USART_NULLPOINTER;
-//     }
-//     else if(RXReq[Channel].state == USART_Busy){
-//         ErrorStatusLocVar = USART_BUSY;
-//     }
-//     else{
-//         switch (Channel)
-//         {
-//             case USART1_channel:
-//             /* make RXNEIE --> 0*/
-//             USART1->USART_CR1 |= USART_MASK_RXNEIE_DISABLE;
-//             if(RXReq[USART1_channel].state == USART_Ready){
-//                 RXReq[USART1_channel].state = USART_Busy;
-//             }
-//             else{
-//                 ErrorStatusLocVar = USART_BUSY;
-//             }
-//             RXReq[USART1_channel].buffer.data = buffer;
-//             RXReq[USART1_channel].buffer.size = length;
-//             RXReq[USART1_channel].buffer.pos = 0;
-//             RXReq[USART1_channel].cb = cb;
-//             /* make RXNEIE --> 1*/
-//             USART1->USART_CR1 |= USART_MASK_RXNEIE_ENABLE;
-//             break;
-//             case USART2_channel:
-//             /* make RXNEIE --> 0*/
-//             USART2->USART_CR1 |= USART_MASK_RXNEIE_DISABLE;
-//             if(RXReq[USART2_channel].state == USART_Ready){
-//                 RXReq[USART2_channel].state = USART_Busy;
-//             }
-//             RXReq[USART2_channel].buffer.data = buffer;
-//             RXReq[USART2_channel].buffer.size = length;
-//             RXReq[USART2_channel].buffer.pos = 0;
-//             RXReq[USART2_channel].cb = cb;
-//             /* make RXNEIE --> 1*/
-//             USART2->USART_CR1 |= USART_MASK_RXNEIE_ENABLE;
-//             break;
-//             case USART6_channel:
-//             /* make RXNEIE --> 0*/
-//             USART6->USART_CR1 |= USART_MASK_RXNEIE_DISABLE;
-//             if(RXReq[USART6_channel].state == USART_Ready){
-//                 RXReq[USART6_channel].state = USART_Busy;
-//             }
-//             RXReq[USART6_channel].buffer.data = buffer;
-//             RXReq[USART6_channel].buffer.size = length;
-//             RXReq[USART6_channel].buffer.pos = 0;
-//             RXReq[USART6_channel].cb = cb;
-//             /* make RXNEIE --> 1*/
-//             USART6->USART_CR1 |= USART_MASK_RXNEIE_ENABLE;
-//             break;
-
-//             default:
-//             ErrorStatusLocVar = USART_wrongchannel;
-//             break;
-//         }
-//     }
-
-//     return ErrorStatusLocVar;
-//  }
-
-// // static u8* USART1_BufferValue;
-// // static u8* USART2_BufferValue;
-// // static u8* USART6_BufferValue;
-// // USART_ErrorStatus_t USART_SendBufferZeroCopy(USART_Channels_t Channel, u8* buffer, u32 length){
-// //     USART_ErrorStatus_t ErrorStatusLocVar = USART_Ok;
-// //     if(buffer == NULL ){
-// //         ErrorStatusLocVar = USART_NULLPOINTER;
-// //     }
-// //     else if(TXReq[Channel].state == USART_Busy){
-// //         ErrorStatusLocVar = USART_BUSY;
-// //     }
-// //     else{
-// //         switch (Channel)
-// //         {
-// //         case USART1_channel:
-// //             /* make TXEIE --> 1*/
-// //             USART1->USART_CR1 |= USART_MASK_TXEIE_ENABLE;
-// //             if(TXReq[USART1_channel].state == USART_Ready){
-// //                 TXReq[USART1_channel].state = USART_Busy;
-// //             }
-// //             else{
-// //                 ErrorStatusLocVar = USART_BUSY;
-// //             }
-// //             TXReq[USART1_channel].buffer.data = buffer;
-// //             TXReq[USART1_channel].buffer.size = length;
-// //             TXReq[USART1_channel].buffer.pos = 0;
-// //             USART1->USART_DR = TXReq[USART1_channel].buffer.data[0];
-// //             TXReq[USART1_channel].buffer.pos++;
-// //         break;
-// //         }
-// // }
-
-// void USART1_IRQHandler(void){
-//     if((USART1->USART_SR >> TXE) & 0x01){//(USART1->USART_SR >> TC) & 0x01
-//         if(TXReq[USART1_channel].buffer.pos < TXReq[USART1_channel].buffer.size){
-//             USART1->USART_SR &= USART_MASK_CLEAR_TC;
-//             u32 index = TXReq[USART1_channel].buffer.pos;
-//             USART1->USART_DR = TXReq[USART1_channel].buffer.data[index];
-//             TXReq[USART1_channel].buffer.pos++;
-//         }
-//         else{
-//             TXReq[USART1_channel].state = USART_Ready;
-//             if(TXReq[USART1_channel].cb){
-//                 TXReq[USART1_channel].cb();
-//             }
-//             USART1->USART_SR &= USART_MASK_CLEAR_TC;
-//         }
-//        // USART1_Finish_sending = USART_FINISH;
-//     }
-//     if((USART1->USART_SR >> RXNE) & 0x01){
-//         if(RXReq[USART1_channel].buffer.pos < RXReq[USART1_channel].buffer.size){
-//             u32 index = RXReq[USART1_channel].buffer.pos;
-//             RXReq[USART1_channel].buffer.data[index] = USART1->USART_DR;
-//             RXReq[USART1_channel].buffer.pos++;
-//         }
-//         else if(RXReq[USART1_channel].buffer.pos == RXReq[USART1_channel].buffer.size){
-//             RXReq[USART1_channel].state = USART_Ready;
-//             RXReq[USART1_channel].buffer.pos = 0;
-//             RXReq[USART1_channel].buffer.size = 0;
-//             if(RXReq[USART1_channel].cb){
-//                 RXReq[USART1_channel].cb();
-//             }
-//            // USART1_Finish_Receiving = USART_FINISH;
-//         }
-//     }
-// }
-
-// void USART2_IRQHandler(void){
-// 	if((USART2->USART_SR >> TXE) & 0x01){//(USART2->USART_SR >> TC) & 0x01
-// 		if(TXReq[USART2_channel].buffer.pos < TXReq[USART2_channel].buffer.size){
-// 			u32 index = TXReq[USART2_channel].buffer.pos;
-// 			USART2->USART_DR = TXReq[USART2_channel].buffer.data[index];
-// 			TXReq[USART2_channel].buffer.pos++;
-// 		}
-// 		else{
-// 			TXReq[USART2_channel].state = USART_Ready;
-// 			if(TXReq[USART2_channel].cb){
-// 				TXReq[USART2_channel].cb();
-// 			}
-// 		}
-// 	}
-// 	if((USART2->USART_SR >> RXNE) & 0x01){
-// 		if(TXReq[USART2_channel].buffer.pos < TXReq[USART2_channel].buffer.size){
-// 			u32 index = TXReq[USART2_channel].buffer.pos;
-// 			TXReq[USART2_channel].buffer.data[index] = USART2->USART_DR;
-// 			TXReq[USART2_channel].buffer.pos++;
-// 		}
-// 		else if(TXReq[USART2_channel].buffer.pos == TXReq[USART2_channel].buffer.size){
-// 			TXReq[USART2_channel].state = USART_Ready;
-// 			TXReq[USART2_channel].buffer.pos = 0;
-// 			TXReq[USART2_channel].buffer.size = 0;
-// 			//USART2_Finish_Receiving = USART_FINISH;
-// 		}
-// 	}
-// }
-
-// void USART6_IRQHandler(void){
-// 	if((USART6->USART_SR >> TXE) & 0x01){//(USART6->USART_SR >> TC) & 0x01
-// 		if(TXReq[USART6_channel].buffer.pos < TXReq[USART6_channel].buffer.size){
-// 			u32 index = TXReq[USART6_channel].buffer.pos;
-// 			USART6->USART_DR = TXReq[USART6_channel].buffer.data[index];
-// 			TXReq[USART6_channel].buffer.pos++;
-// 		}
-// 		else{
-// 			TXReq[USART6_channel].state = USART_Ready;
-// 			if(TXReq[USART6_channel].cb){
-// 				TXReq[USART6_channel].cb();
-// 			}
-// 		}
-// 	}
-// 	if((USART6->USART_SR >> RXNE) & 0x01){
-// 		if(TXReq[USART6_channel].buffer.pos < TXReq[USART6_channel].buffer.size){
-// 			u32 index = TXReq[USART6_channel].buffer.pos;
-// 			TXReq[USART6_channel].buffer.data[index] = USART6->USART_DR;
-// 			TXReq[USART6_channel].buffer.pos++;
-// 		}
-// 		else if(TXReq[USART6_channel].buffer.pos == TXReq[USART6_channel].buffer.size){
-// 			TXReq[USART6_channel].state = USART_Ready;
-// 			TXReq[USART6_channel].buffer.pos = 0;
-// 			TXReq[USART6_channel].buffer.size = 0;
-// 			//USART6_Finish_Receiving = USART_FINISH;
-// 		}
-// 	}
-// }
