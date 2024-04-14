@@ -10,8 +10,8 @@
 #define USART1_RxPIN         GPIO_PIN10
 
 
-void PubSub_Init(u8 UART_chanel);
+void IPC_Init(u8 UART_chanel);
 
-void PubSub_SendUSART(u8 USART_Num, u8*buffer, u16 len, fnpointer cbf);
+void IPC_SendUSART(u8 USART_Num, u8*buffer, u16 len, fnpointer cbf);
 
-void PubSub_ReceiveUSART(u8 USART_Num,u8*buffer, u16 len, fnpointer cbf);
+void IPC_ReceiveUSART(u8 USART_Num,u8*buffer, u16 len, fnpointer cbf);

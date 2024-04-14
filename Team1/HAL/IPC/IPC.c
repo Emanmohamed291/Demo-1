@@ -1,9 +1,9 @@
-#include "PubSub.h"
+#include "IPC.h"
 
 //extern USART_PostCompileCfg_t USART1_cfg;
 USART_PostCompileCfg_t USART1_cfg={USART_CH1,USART_OVERSAMPLING_16,USART_DATA_BITS_8,USART_PARITY_NONE,USART_STOP_BITS_ONE,9600};
 
-void PubSub_Init(u8 UART_chanel){
+void IPC_Init(u8 UART_chanel){
     switch (UART_chanel)
     {
     case USART_CH1:
@@ -23,10 +23,10 @@ void PubSub_Init(u8 UART_chanel){
 
 }
 
-void PubSub_SendUSART(u8 USART_Num, u8*buffer, u16 len, fnpointer cbf){
+void IPC_SendUSART(u8 USART_Num, u8*buffer, u16 len, fnpointer cbf){
     USART_TxBufferAsyncZeroCopy(USART_Num, buffer, len, cbf);
 }
 
-void PubSub_ReceiveUSART(u8 USART_Num,u8*buffer, u16 len, fnpointer cbf){
+void IPC_ReceiveUSART(u8 USART_Num,u8*buffer, u16 len, fnpointer cbf){
     USART_RxBufferAsyncZeroCopy(USART_Num, buffer, len, cbf);
 }
