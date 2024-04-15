@@ -1,31 +1,39 @@
 /*
- * Scheduler.h
+ * NVIC.h
  *
- * Created: 3/14/2024 9:00:18 AM
+ * Created: 3/3/2024 3:26:27 PM
  *  Author: Eman
  */ 
 
 
 #ifndef SCHEDULER_H_
 #define SCHEDULER_H_
-
 #include "STD_LIB/std_types.h"
-/************************************************************************************
- *                                       datatypes                                  *
- * **********************************************************************************/
 
-typedef void(*runnableCBF_t)(void);
+typedef void (*runnable_cb_t) (void);
 
-typedef struct{
-	char* name;
-    u32 delay_ms;
-	u32 periodicitymS;
-	runnableCBF_t CBfunc;
-}runnable_t;
-/************************************************************************************
- *                                       functions                                  *
- * **********************************************************************************/
+typedef enum
+{
+	Sched_OK,
+	Sched_NOK
+}Sched_ErrorStatus_t;
 
-void Sched_Init(void);
-void Sched_Start(void);
+// for any configurations configurable by the user
+typedef struct
+{
+	char *name;
+	u32 Delay_ms;
+	u32 periodicity_ms;
+	//u32 priority;
+	runnable_cb_t cb;
+} runnable_t;
+
+//Sched_ErrorStatus_t scheduler_registerrunnable(runnable_t *runnable);
+
+// To enable timers
+void scheduler_init(void);
+// all tasks must be created between the init and the start
+// Although our implementation will allow tasks to be run after starting sched
+void scheduler_start(void);
+
 #endif /* SCHEDULER_H_ */
