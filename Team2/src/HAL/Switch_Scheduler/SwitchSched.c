@@ -46,15 +46,18 @@ ErrorStatus_t HSwitch_Init(void)
     GPIO_CFG_t HSwitch;
   
     uint8_t SW_Num;
+    
+    HSwitch.GPIO_Speed=GPIO_HIGH_SPEED;
+    HSwitch.GPIO_AF=GPIO_AF_DISABLED;
     for (SW_Num=0;SW_Num<_HSWITCHES_NUM;SW_Num++)
     {
         HSwitch.GPIO_Port=HSwitches[SW_Num].SW_Port;
         HSwitch.GPIO_Pin=HSwitches[SW_Num].SW_Pin;
         HSwitch.GPIO_Mode=HSwitches[SW_Num].SW_Connection;
+ 
+        ReturnState=GPIO_InitPin(&HSwitch);
     }
-    HSwitch.GPIO_Speed=GPIO_HIGH_SPEED;
-    HSwitch.GPIO_AF=GPIO_AF_DISABLED;
-    ReturnState=GPIO_InitPin(&HSwitch);
+   
     return ReturnState;
    }
 
@@ -90,13 +93,13 @@ ErrorStatus_t HSwitch_Init(void)
  */
    void HSwitch_Runnable(void)
    {
-        uint8_t CurrentState=0;
-        static uint8_t PrevoiusState[_HSWITCHES_NUM]={0};
-        static uint8_t Counts[_HSWITCHES_NUM]={0};
-        ErrorStatus_t ReturnError;
-        for(uint8_t SwitchNum=0;SwitchNum<_HSWITCHES_NUM;SwitchNum++)
-        {
-            ReturnError=GPIO_GetPinValue(HSwitches[SwitchNum].SW_Port,HSwitches[SwitchNum].SW_Pin,&CurrentState);
+         uint32_t CurrentState=0;
+         static uint32_t PrevoiusState[_HSWITCHES_NUM]={0};
+         static uint32_t Counts[_HSWITCHES_NUM]={0};
+         ErrorStatus_t ReturnError;
+         for(uint8_t SwitchNum=0;SwitchNum<_HSWITCHES_NUM;SwitchNum++)
+         {
+             ReturnError=GPIO_GetPinValue(HSwitches[SwitchNum].SW_Port,HSwitches[SwitchNum].SW_Pin,&CurrentState);
             if(CurrentState==PrevoiusState[SwitchNum])
             {
                 Counts[SwitchNum]++;
@@ -110,7 +113,6 @@ ErrorStatus_t HSwitch_Init(void)
                 HSwitchState[SwitchNum]=CurrentState;
             }
             PrevoiusState[SwitchNum]=CurrentState;
-        }
+         }
 
    }
-
