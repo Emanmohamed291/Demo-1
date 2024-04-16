@@ -4,7 +4,7 @@
  
  /* @ Modified by: Your name
  * @ Modified time: 2024-04-15 00:55:51
- * @ Modified time: 2024-04-15 16:56:48
+ * @ Modified time: 2024-04-16 21:47:38
  * Layer	: App
  * Version  : V 0.0
  * Created	: Apr 8, 2024
@@ -99,7 +99,7 @@ uint8_t RXBuffer=0;                       /* Var to Save Received Data From UART
 uint8_t CurrentMode= MainMenu;            /* Var represent the Current mode to Display on LCD               */
 uint8_t MainMenuCursorLoc=FirstLine;      /* Var to store the Current location of Cursor in Main Menu Mode */
 /*======================= Variables of Date =========================*/
-uint8_t Day=10;
+uint8_t Day=16;
 uint8_t Month=4;
 uint16_t Year=2024;
 /*===================== LCD Operation States =======================*/
@@ -779,7 +779,7 @@ static void LCD_DecrementDateTime(void)
     {
         case MainMenu:
         {
-            switch(TXBuffer)
+            switch(RXBuffer)
             {
                 case UP:
                 {
@@ -819,7 +819,7 @@ static void LCD_DecrementDateTime(void)
         break;
         case StopWatch:
         {
-             switch(TXBuffer)
+             switch(RXBuffer)
             {
                 case RESET_STOPWATCH:
                 {
@@ -851,7 +851,7 @@ static void LCD_DecrementDateTime(void)
         {
             /*Initial Cursor State is Last Place it was At while Editing*/
             LCD_SetCursorPosAsynch(LCD1,PosX,PosY,NULL);
-            switch(TXBuffer)
+            switch(RXBuffer)
             {
                 case UP:
                 {
@@ -1100,7 +1100,7 @@ void LCD_DisplayStopwatch()
 void Display_App(void)
 {
     /*Prepare to Receive UART Byte Every 125mS*/
-    //IPC_USART_ReceiveBufferAsynchZeroCopy(USART_CH2,&RXBuffer,1,USART_ReceiveCbf);
+    IPC_USART_ReceiveBufferAsynchZeroCopy(USART_CH2,&RXBuffer,1,USART_ReceiveCbf);
 }
 
 /***********************************************************************************/
@@ -1125,35 +1125,35 @@ void AppButtons_Runnable(void)
      if(SwitchState[MODE_OK_SWITCH]==SWITCH_PRESSED)
         {
             TXBuffer=OK_MODE_SWITCH;
-            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,USART_ReceiveCbf);
+            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,NULL);
         }
 
     ReturnState=HSwitch_GetState(UP_SWITCH,&(SwitchState[UP_SWITCH]));
      if(SwitchState[UP_SWITCH]==SWITCH_PRESSED)
         {
             TXBuffer=UP;
-            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,USART_ReceiveCbf);
+            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,NULL);
         }
 
     ReturnState=HSwitch_GetState(EDIT_SWITCH,&(SwitchState[EDIT_SWITCH]));
      if(SwitchState[EDIT_SWITCH]==SWITCH_PRESSED)
         {
             TXBuffer=EDIT;
-            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,USART_ReceiveCbf);
+            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,NULL);
         }
 
     ReturnState=HSwitch_GetState(RIGHT_START_STOP_SWITCH,&(SwitchState[RIGHT_START_STOP_SWITCH]));
      if(SwitchState[RIGHT_START_STOP_SWITCH]==SWITCH_PRESSED)
         {
             TXBuffer=RIGHT_START_STOP_STOPWATCH_SWITCH;
-            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,USART_ReceiveCbf);
+            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,NULL);
         }
 
     ReturnState=HSwitch_GetState(LEFT_RESET_SWITCH,&(SwitchState[LEFT_RESET_SWITCH]));
      if(SwitchState[LEFT_RESET_SWITCH]==SWITCH_PRESSED)
         {
             TXBuffer=LEFT_RESET_STOPWATCH_SWITCH;
-            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,USART_ReceiveCbf);
+            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,NULL);
 
         }
 
@@ -1161,7 +1161,7 @@ void AppButtons_Runnable(void)
      if(SwitchState[DOWN_PAUSE_CONTINUE_SWITCH]==SWITCH_PRESSED)
         {
             TXBuffer=DOWN_PAUSE_CONTINUE_STOPWATCH_SWITCH;
-            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,USART_ReceiveCbf);
+            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,NULL);
         }  
 }
 #endif
