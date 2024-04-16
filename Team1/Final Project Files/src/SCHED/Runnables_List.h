@@ -10,12 +10,12 @@
 
 /*** Runnable Names ***/
 typedef enum {
-	LCD_Runnable,
-	SWITCH,
-	StopWatch,
-	APP_send,
-	APP_receive,
-	TimeDateUpdate,
+	LCD_TASK_RUN,
+    HSwitchRunnable,
+    STOP_WATCH,
+    DISPLAY_APP,
+    AppButtonsRun,
+    DATE_TIME,
 	_Runnables_NUM
 }RUNNABLES_t;
 

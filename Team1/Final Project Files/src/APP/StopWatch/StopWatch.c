@@ -1,3 +1,4 @@
+#include "HAL/LCD/LCD.h"
 #include "Stopwatch.h"
 
 StopWatch_value_t StopWatch_value;
@@ -51,65 +52,79 @@ void StopWatch_Pause(void){
 
 void StopWatch_Display(void)
 {
+	/*LCD_GotoPos_XY_async(0,3,NULLPTR);
+	LCD_enuWriteString_asynch("Stopwatch", NULLPTR);*/
+	LCD_GotoPos_XY_async(1,3,NULLPTR);
     if(StopWatch_value.hour == 0){
-			LCD_GotoPos_XY_async(0,0,NULLPTR);
+		    
 			LCD_enuWriteString_asynch("0", NULLPTR);
 			LCD_enuWriteString_asynch("0", NULLPTR);
 			LCD_enuWriteString_asynch(":", NULLPTR);
 		}
 		else if(StopWatch_value.hour < 10){
-			LCD_GotoPos_XY_async(0,0,NULLPTR);
+			
 			LCD_enuWriteString_asynch("0", NULLPTR);
 			LCD_enuWriteNumber_asynch(StopWatch_value.hour, NULLPTR);
 			LCD_enuWriteString_asynch(":", NULLPTR);
 		}
 		else{
-			LCD_GotoPos_XY_async(0,0,NULLPTR);
+			
 			LCD_enuWriteNumber_asynch(StopWatch_value.hour, NULLPTR);
 			LCD_enuWriteString_asynch(":", NULLPTR);
 		}
 		if(StopWatch_value.min == 0){
-			LCD_GotoPos_XY_async(0,3,NULLPTR);
+			
 			LCD_enuWriteString_asynch("0", NULLPTR);
 			LCD_enuWriteString_asynch("0", NULLPTR);
 			LCD_enuWriteString_asynch(":", NULLPTR);
 		}
 		else if(StopWatch_value.min < 10){
-			LCD_GotoPos_XY_async(0,3,NULLPTR);
+			
 			LCD_enuWriteString_asynch("0", NULLPTR);
 			LCD_enuWriteNumber_asynch(StopWatch_value.min, NULLPTR);
 			LCD_enuWriteString_asynch(":", NULLPTR);
 		}
 		else{
-			LCD_GotoPos_XY_async(0,3,NULLPTR);
+			
 			LCD_enuWriteNumber_asynch(StopWatch_value.min, NULLPTR);
 			LCD_enuWriteString_asynch(":", NULLPTR);
 		}
 		if(StopWatch_value.sec == 0){
-			LCD_GotoPos_XY_async(0,6,NULLPTR);
+			
 			LCD_enuWriteString_asynch("0", NULLPTR);
 			LCD_enuWriteString_asynch("0", NULLPTR);
 			LCD_enuWriteString_asynch(":", NULLPTR);
 		}
 		else if(StopWatch_value.sec < 10){
-			LCD_GotoPos_XY_async(0,6,NULLPTR);
+			
 			LCD_enuWriteString_asynch("0", NULLPTR);
 			LCD_enuWriteNumber_asynch(StopWatch_value.sec, NULLPTR);
 			LCD_enuWriteString_asynch(":", NULLPTR);
 		}
 		else{
-			LCD_GotoPos_XY_async(0,6,NULLPTR);
+			
 			LCD_enuWriteNumber_asynch(StopWatch_value.sec, NULLPTR);
 			LCD_enuWriteString_asynch(":", NULLPTR);
 		}
 		if(StopWatch_value.millisec == 0){
-			LCD_GotoPos_XY_async(0,9,NULLPTR);
+			
 			LCD_enuWriteString_asynch("0", NULLPTR);
+			LCD_enuWriteString_asynch("0", NULLPTR);
+			
+		}
+		else if(StopWatch_value.millisec<0)
+		{
+			
+			LCD_enuWriteString_asynch("0", NULLPTR);
+			LCD_enuWriteNumber_asynch(StopWatch_value.millisec, NULLPTR);
+			
 		}
 		else{
-			LCD_GotoPos_XY_async(0,9,NULLPTR);
+			
 			LCD_enuWriteNumber_asynch(StopWatch_value.millisec, NULLPTR);
+			
 		}
+		
 }
 /************************** getters *****************************/
 

@@ -31,7 +31,7 @@ typedef enum
 /************************************************Variables***********************************************/
 /********************************************************************************************************/
 static LCD_Mode_t LCD_Mode = MainMenu;
-static LCD_Mode_t LCD_modechoose;
+static LCD_Mode_t LCD_modechoose=StopWatch;;
 
 u8 IPC_buffer;
 
@@ -57,9 +57,9 @@ static u8 StartFirst_flag = 1;
 void APP_LCDMainMenu(void)
 {
 	LCD_GotoPos_XY_async(0, 0, NULLPTR);
-	LCD_enuWriteString_asynch("->>Stop Watch", NULLPTR);
+	LCD_enuWriteString_asynch(">>Stopwatch", NULLPTR);
 	LCD_GotoPos_XY_async(1, 0, NULLPTR);
-	LCD_enuWriteString_asynch("->>Date & Time", NULLPTR);
+	LCD_enuWriteString_asynch(">>Date & Time", NULLPTR);
 	LCD_GotoPos_XY_async(0, 0, NULLPTR);
 }
 
@@ -84,7 +84,6 @@ void CBFun(void)
 			LCD_modechoose = DateAndTime;
 			break;
 		case OK_MODE:
-
 			LCD_Mode = LCD_modechoose;
 			LCD_ClearScreen_async();
 			if (LCD_modechoose == DateAndTime)
@@ -96,6 +95,8 @@ void CBFun(void)
 			else if (LCD_modechoose == StopWatch)
 			{
 				// stopwatch display
+				LCD_GotoPos_XY_async(0,3,NULLPTR);
+	            LCD_enuWriteString_asynch("Stopwatch", NULLPTR);
 				StopWatchDisp_flag = 1;
 				TimeDateDisp_flag = 0;
 			}
@@ -113,7 +114,10 @@ void CBFun(void)
 			LCD_Mode = StopWatch;
 			LCD_ClearScreen_async();
 			TimeDateDisp_flag = 0;
+			CursorOn_flag =0;
 			// display StopWatch
+			LCD_GotoPos_XY_async(0,3,NULLPTR);
+	        LCD_enuWriteString_asynch("Stopwatch", NULLPTR);
 			StopWatchDisp_flag = 1;
 			break;
 		case EDIT:
@@ -219,6 +223,7 @@ void CBFun(void)
 			}
 			break;
 		default:
+		StopWatchDisp_flag = 1;
 			break;
 		}
 	}
@@ -258,6 +263,7 @@ void StopWatch_TestAPP(void)
 
 	if (StopWatchDisp_flag == 1)
 	{
+		LCD_DisableCursor_asynch();
 		StopWatch_Display();
 	}
 }
@@ -272,13 +278,14 @@ void APP_Control(void)
 void APP_Send(void)
 {
 	u8 switchState = SWITCH_NOT_PRESSED;
+	u8 buffer=0;
 	/* OK_MODE */
 	SWITCH_GetStatus(SWITCH_OK_MODE, &switchState);
 	switch (switchState)
 	{
 	case SWITCH_PRESSED:
-	   
-		IPC_SendUSART(USART_CH1, OK_MODE, 1, NULLPTR);
+	    buffer=OK_MODE;
+		IPC_SendUSART(USART_CH1, &buffer, 1, NULLPTR);
 		switchState = SWITCH_NOT_PRESSED;
 		break;
 	case SWITCH_NOT_PRESSED:
@@ -291,7 +298,8 @@ void APP_Send(void)
 	switch (switchState)
 	{
 	case SWITCH_PRESSED:
-		IPC_SendUSART(USART_CH1, UP, 1, NULLPTR);
+        buffer=UP;
+		IPC_SendUSART(USART_CH1, &buffer, 1, NULLPTR);
 		switchState = SWITCH_NOT_PRESSED;
 		break;
 	case SWITCH_NOT_PRESSED:
@@ -304,7 +312,8 @@ void APP_Send(void)
 	switch (switchState)
 	{
 	case SWITCH_PRESSED:
-		IPC_SendUSART(USART_CH1, EDIT, 1, NULLPTR);
+	    buffer=EDIT;
+		IPC_SendUSART(USART_CH1, &buffer, 1, NULLPTR);
 		switchState = SWITCH_NOT_PRESSED;
 		break;
 	case SWITCH_NOT_PRESSED:
@@ -317,7 +326,8 @@ void APP_Send(void)
 	switch (switchState)
 	{
 	case SWITCH_PRESSED:
-		IPC_SendUSART(USART_CH1, RIGHT_START_STOP_STOPWATCH, 1, NULLPTR);
+	    buffer=RIGHT_START_STOP_STOPWATCH;
+		IPC_SendUSART(USART_CH1, &buffer, 1, NULLPTR);
 		switchState = SWITCH_NOT_PRESSED;
 		break;
 	case SWITCH_NOT_PRESSED:
@@ -330,7 +340,8 @@ void APP_Send(void)
 	switch (switchState)
 	{
 	case SWITCH_PRESSED:
-		IPC_SendUSART(USART_CH1, LEFT_RESET_STOPWATCH, 1, NULLPTR);
+	    buffer=LEFT_RESET_STOPWATCH;
+		IPC_SendUSART(USART_CH1, &buffer, 1, NULLPTR);
 		switchState = SWITCH_NOT_PRESSED;
 		break;
 	case SWITCH_NOT_PRESSED:
@@ -343,7 +354,8 @@ void APP_Send(void)
 	switch (switchState)
 	{
 	case SWITCH_PRESSED:
-		IPC_SendUSART(USART_CH1, DOWN_PAUSE_CONTINUE_STOPWATCH, 1, NULLPTR);
+	    buffer=DOWN_PAUSE_CONTINUE_STOPWATCH;
+		IPC_SendUSART(USART_CH1, &buffer, 1, NULLPTR);
 		switchState = SWITCH_NOT_PRESSED;
 		break;
 	case SWITCH_NOT_PRESSED:
@@ -366,8 +378,4 @@ void TimeDate_Update(void)
 		LCD_EnableCursor_asynch();
 		LCD_GotoPos_XY_async(X_Pos, Y_Pos, NULLPTR);
 	}
-}
-/* */
-static u8 ConvertFormDouble(u8* single){
-	return single[0];
 }

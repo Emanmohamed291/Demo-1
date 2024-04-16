@@ -23,8 +23,8 @@ void IPC_Init(u8 UART_chanel){
 
 }
 
-void IPC_SendUSART(u8 USART_Num, u8 buffer, u16 len, fnpointer cbf){
-    USART_TxBufferAsyncZeroCopy(USART_Num, &buffer, len, cbf);
+void IPC_SendUSART(u8 USART_Num, u8* buffer, u16 len, fnpointer cbf){
+    USART_TxBufferAsyncZeroCopy(USART_Num, buffer, len, cbf);
 }
 
 void IPC_ReceiveUSART(u8 USART_Num,u8* buffer, u16 len, fnpointer cbf){
