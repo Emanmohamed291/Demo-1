@@ -34,22 +34,22 @@ typedef struct
 
 typedef enum
 {
-    hr_index1=0,
-    hr_index2=1,
-    min_index1=3,
-    min_index2=4,
-    sec_index1=6,
-    sec_index2=7
+    hr_index1=6,
+    hr_index2=7,
+    min_index1=9,
+    min_index2=10,
+    sec_index1=12,
+    sec_index2=13
 } Time_Index_t;
 
 typedef enum
 {
-    day_index1=8,
-    day_index2=9,
-    mon_index1=11,
-    mon_index2=12,
-    yr_index1=16,
-    yr_index2=17
+    day_index1=14,
+    day_index2=15,
+    mon_index1=17,
+    mon_index2=18,
+    yr_index1=22,
+    yr_index2=23
 } Date_Index_t;
 
 
@@ -57,7 +57,7 @@ typedef enum
 /************************************************Variables***********************************************/
 /********************************************************************************************************/
  u8 X_Pos=0;
- u8 Y_Pos=0;
+ u8 Y_Pos=6;
 
  u8 Sec=0;
  u8 Min=0;
@@ -90,15 +90,15 @@ void LCD_MOVE_DIRECTION(u8 Direction)
     switch(Direction)
     {
         case Cursor_Left_Shift:
-        if(X_Pos==0 && Y_Pos==0)
+        if(X_Pos==0 && Y_Pos==6)
         {
             X_Pos=1;
-            Y_Pos=9;
+            Y_Pos=15;
         }
-        else if(X_Pos==1 && Y_Pos==0)
+        else if(X_Pos==1 && Y_Pos==6)
         {
             X_Pos=0;
-            Y_Pos=7;
+            Y_Pos=13;
         }
         else
         {
@@ -108,15 +108,15 @@ void LCD_MOVE_DIRECTION(u8 Direction)
         break;
 
         case Cursor_Right_Shift:
-        if(X_Pos==0 && Y_Pos==7)
+        if(X_Pos==0 && Y_Pos==13)
         {
             X_Pos=1;
-            Y_Pos=0;
+            Y_Pos=6;
         }
-        else if(X_Pos==1 && Y_Pos==9)
+        else if(X_Pos==1 && Y_Pos==15)
         {
             X_Pos=0;
-            Y_Pos=0;
+            Y_Pos=6;
         }
         else
         {
@@ -334,6 +334,7 @@ void TimeDateDisplay(void)
 	LCD_DisableCursor_asynch();
 	// Display time on LCD
     LCD_GotoPos_XY_async(0, 0, NULLPTR);
+    LCD_enuWriteString_asynch("Time: ", NULLPTR);
     if(Hr==0)
     {
     	LCD_enuWriteString_asynch("0", NULLPTR);
@@ -384,6 +385,7 @@ void TimeDateDisplay(void)
     }
 
     LCD_GotoPos_XY_async(1,0,NULLPTR);
+    LCD_enuWriteString_asynch("Date: ", NULLPTR);
      if(Day<10)
      {
  		LCD_enuWriteString_asynch("0", NULLPTR);
@@ -438,52 +440,50 @@ void TimeDate_Running(void)
 	/* Update Date */
 
 	// Increment Month
-	if(((Mon==1)||(Mon==3)||(Mon==5)||(Mon==7)||(Mon==8)||(Mon==10)||(Mon==12))&&(Day>31))
+	if(((Mon==1)||(Mon==3)||(Mon==5)||(Mon==7)||(Mon==8)||(Mon==10)||(Mon==12))&&(Day>=32))
 	{
-		Day = Day % 32;
-        if(Day==0)
-        {
-            Day=1;
-        }
+        Day=1;
+     	Mon++;
+	}
+	else if(((Mon==4)||(Mon==6)||(Mon==9)||(Mon==11))&&(Day>=31))
+	{
+        Day=1;
 		Mon++;
 	}
-	else if(((Mon==4)||(Mon==6)||(Mon==9)||(Mon==11))&&(Day>30))
+	else if ((Mon==2)&&(Day>=30)&&(Yr%4==0))
 	{
-		Day = Day % 31;
-        if(Day==0)
-        {
-            Day=1;
-        }
-		Mon++;
+        Day=1;
+	    Mon++;
 	}
-	else if ((Mon==2)&&(Day>29)&&(Yr%4==0))
+	else if ((Mon==2)&&(Day>29)&&(Yr%4!=0))
 	{
-		Day = Day % 30;
-        if(Day==0)
-        {
-            Day=1;
-        }
+        Day=1;
 		Mon++;
-	}
-	else if ((Mon==2)&&(Day>28)&&(Yr%4!=0))
-	{
-		Day = Day % 29;
-        if(Day==0)
-        {
-            Day=1;
-        }
-		Mon++;
-	}
+  	}
 	//Increment Year
 	if(Mon>12)
 	{
-		Mon=Mon%13;
-		Yr++;
-	}
-    if(Yr>39)
+		Mon=1;
+ 		Yr++;
+ 	}
+ if(Yr>39)
     {
         Yr=20;
     }
 
-}
+    /* Update Time and Date values in edit mode*/
+    Time_Value.hr_dig1=Hr/10;;
+    Time_Value.hr_dig2=Hr%10;
+    Time_Value.min_dig1=Min/10;
+    Time_Value.min_dig2=Min%10;
+    Time_Value.sec_dig1=Sec/10;
+    Time_Value.sec_dig2=Sec%10;
 
+    Date_Value.day_dig1=Day/10;
+    Date_Value.day_dig2=Day%10;
+    Date_Value.mon_dig1=Mon/10;
+    Date_Value.mon_dig2=Mon%10;
+    Date_Value.yr_dig1=Yr/10;
+    Date_Value.yr_dig2=Yr%10;
+
+}

@@ -17,6 +17,7 @@ static void scheduler(void);
 // variable to determine if we should call scheduler
 static volatile u32 pendingTicks=0;
 extern const runnable_t RunnablesList[_Runnables_NUM];
+static u32 RemainTime_ms[_Runnables_NUM]={0};
 /*For any internal configuration
 typedef struct
 {
@@ -32,16 +33,21 @@ static void scheduler_tickcb(void)
 
 static void scheduler(void)
 {
-	u32 idx=0;
-	static u32 timestamp=0;
-	for(idx = 0; idx < _Runnables_NUM; idx++)
+	u32 Runnable_Idx=0;
+	for(Runnable_Idx = 0; Runnable_Idx < _Runnables_NUM; Runnable_Idx++)
 	{
-		if(RunnablesList[idx].cb && (timestamp%RunnablesList[idx].periodicity_ms==0))
+		if(RunnablesList[Runnable_Idx].cb && (RemainTime_ms[Runnable_Idx]==0))
 		{
-			RunnablesList[idx].cb();
+			RunnablesList[Runnable_Idx].cb();
+			RemainTime_ms[Runnable_Idx]=RunnablesList[Runnable_Idx].periodicity_ms;
 		}
+		else
+		{
+
+		}
+		RemainTime_ms[Runnable_Idx]-=SCHED_TICK_TIME_ms;
 	}
-	timestamp+=SCHED_TICK_TIME_ms;
+	
 }
 void scheduler_init(void)
 {
@@ -50,7 +56,10 @@ void scheduler_init(void)
 	// systick configure
 	STK_SetTime_ms(SCHED_TICK_TIME_ms);
 	STK_RegisterCallback(scheduler_tickcb);
-
+    for(u32 Runnable_Idx=0;Runnable_Idx<_Runnables_NUM;Runnable_Idx++)
+    {
+        RemainTime_ms[Runnable_Idx]=RunnablesList[Runnable_Idx].FirstDelay_ms;
+    }
 }
 
 void scheduler_start(void)

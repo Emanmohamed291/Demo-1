@@ -169,7 +169,7 @@ void LCD_InitPins(void)
 
 void LCD_init_asynch(LCD_CBF cbf )
 {
-	u8 idx=0;
+	u16 idx=0;
     /*Initialize State to Be Idle*/
     for( idx=0;idx<MAXBufferSize;idx++)
     {
