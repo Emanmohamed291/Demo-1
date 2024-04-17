@@ -4,7 +4,7 @@
  
  /* @ Modified by: Your name
  * @ Modified time: 2024-04-15 00:55:51
- * @ Modified time: 2024-04-16 21:47:38
+ * @ Modified time: 2024-04-17 15:19:48
  * Layer	: App
  * Version  : V 0.0
  * Created	: Apr 8, 2024
@@ -99,9 +99,9 @@ uint8_t RXBuffer=0;                       /* Var to Save Received Data From UART
 uint8_t CurrentMode= MainMenu;            /* Var represent the Current mode to Display on LCD               */
 uint8_t MainMenuCursorLoc=FirstLine;      /* Var to store the Current location of Cursor in Main Menu Mode */
 /*======================= Variables of Date =========================*/
-uint8_t Day=30;
-uint8_t Month=4;
-uint16_t Year=2023;
+uint8_t Day=28;
+uint8_t Month=2;
+uint16_t Year=2024;
 /*===================== LCD Operation States =======================*/
 uint8_t EditMode=OFF;                   /* Variable to Keep Track if Editing is On/Off to Enable/Disable Cursor          */
 
@@ -114,7 +114,7 @@ uint8_t EditUpdate=CONSTANT;            /* Variable to Keep Track if an Incremen
 /*============================ Time Variables ==============================*/
 uint32_t TimeSeconds=20;
 uint32_t TimeMinutes=59;
-uint32_t TimeHours  =23;
+uint32_t TimeHours  =8;
 /*========================= StopWatch Variables ============================*/
 uint8_t StopWatchTensSeconds=0;
 uint8_t StopWatchSeconds    =0;
@@ -954,14 +954,14 @@ void LCD_DisplayDateTime(void)
                         {
                             if(Year%4==0)
                             {
-                                if(Day>28)
+                                if(Day>29)
                                 {
                                     Day=1;
                                 }
                             }
                             else
                             {
-                                if(Day>29)
+                                if(Day>28)
                                 {
                                     Day=1;
                                 }
@@ -1143,7 +1143,7 @@ void LCD_DisplayStopwatch()
 void Display_App(void)
 {
     /*Prepare to Receive UART Byte Every 125mS*/
-   // IPC_USART_ReceiveBufferAsynchZeroCopy(USART_CH2,&RXBuffer,1,USART_ReceiveCbf);
+    IPC_USART_ReceiveBufferAsynchZeroCopy(USART_CH2,&RXBuffer,1,USART_ReceiveCbf);
 }
 
 /***********************************************************************************/
@@ -1169,35 +1169,35 @@ void AppButtons_Runnable(void)
      if(SwitchState[MODE_OK_SWITCH]==SWITCH_PRESSED)
         {
             RXBuffer=OK_MODE_SWITCH;
-            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&RXBuffer,1,USART_ReceiveCbf);
+            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,NULL);
         }
 
     ReturnState=HSwitch_GetState(UP_SWITCH,&(SwitchState[UP_SWITCH]));
      if(SwitchState[UP_SWITCH]==SWITCH_PRESSED)
         {
             RXBuffer=UP;
-            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&RXBuffer,1,USART_ReceiveCbf);
+            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,NULL);
         }
 
     ReturnState=HSwitch_GetState(EDIT_SWITCH,&(SwitchState[EDIT_SWITCH]));
      if(SwitchState[EDIT_SWITCH]==SWITCH_PRESSED)
         {
             RXBuffer=EDIT;
-            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&RXBuffer,1,USART_ReceiveCbf);
+            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,NULL);
         }
 
     ReturnState=HSwitch_GetState(RIGHT_START_STOP_SWITCH,&(SwitchState[RIGHT_START_STOP_SWITCH]));
      if(SwitchState[RIGHT_START_STOP_SWITCH]==SWITCH_PRESSED)
         {
             RXBuffer=RIGHT_START_STOP_STOPWATCH_SWITCH;
-            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&RXBuffer,1,USART_ReceiveCbf);
+            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,NULL);
         }
 
     ReturnState=HSwitch_GetState(LEFT_RESET_SWITCH,&(SwitchState[LEFT_RESET_SWITCH]));
      if(SwitchState[LEFT_RESET_SWITCH]==SWITCH_PRESSED)
         {
             RXBuffer=LEFT_RESET_STOPWATCH_SWITCH;
-            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&RXBuffer,1,USART_ReceiveCbf);
+            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,NULL);
 
         }
 
@@ -1205,7 +1205,7 @@ void AppButtons_Runnable(void)
      if(SwitchState[DOWN_PAUSE_CONTINUE_SWITCH]==SWITCH_PRESSED)
         {
             RXBuffer=DOWN_PAUSE_CONTINUE_STOPWATCH_SWITCH;
-            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&RXBuffer,1,USART_ReceiveCbf);
+            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,USART_ReceiveCbf);
         }  
 }
 #endif
