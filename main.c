@@ -1,6 +1,17 @@
  #include "APP/APP_Demo1/APP_Demo.h"
 
 u8 START_BYTE = 0xAA;
+// Structure to represent test cases
+typedef struct {
+    u8 test_function;
+    u8 parameter;
+} TestCase;
+
+// Function declarations
+void execute_test_case(TestCase *test_case);
+void send_ack(u8 ack);
+void receive_test_case();
+
 void send_message(u8 *payload, u8 length);
 void receive_message();
 u8 buffer;
@@ -9,6 +20,8 @@ int main(void)
 {
 	RCC_enuEnableDisablePeripheral(RCC_AHB1,GPIOAEN,Periph_enuON);
 	IPC_Init(USART_CH1);
+  LED_Init();
+	SWITCH_Init();
 	// SWITCH_Init();
 	// LCD_InitPins();
 	// LCD_init_asynch(NULLPTR);
@@ -17,6 +30,80 @@ int main(void)
 	// scheduler_start();
 }
 
+
+void receive_test_case() {
+    u8 start_byte, payload_length, checksum, received_checksum;
+    TestCase test_case;
+
+    // Wait for start byte
+    IPC_ReceiveUSART(USART_CH1, &start_byte, 1, NULLPTR);
+    if (start_byte != START_BYTE) {
+        return; // Discard message if start byte is incorrect
+    }
+
+    // Read payload length
+    IPC_ReceiveUSART(USART_CH1, &payload_length, 1, NULLPTR);
+
+    // Read test case data
+    IPC_ReceiveUSART(USART_CH1, (u8 *)&test_case, 1, NULLPTR);
+
+    // Calculate checksum
+    IPC_ReceiveUSART(USART_CH1, &received_checksum, 1, NULLPTR);
+    checksum = 0;
+    checksum ^= payload_length;
+    checksum ^= test_case.test_function;
+    checksum ^= test_case.parameter;
+
+    // Check for checksum match
+    if (checksum == received_checksum) {
+        // Execute test case
+        execute_test_case(&test_case);
+        //send report
+
+    } else {
+        // Error handling: Checksum mismatch
+        send_ack(0); // Send NACK
+    }
+}
+void execute_test_case(TestCase *test_case) {
+  u8 Copy_Status = SWITCH_NOT_PRESSED;
+  u8 ledState;
+    // Based on test_function, call corresponding test function
+    switch (test_case->test_function) {
+        case 0x01: // Test function for get_switch()
+            // Call get_switch() with parameter test_case->parameter
+            SWITCH_GetStatus(SWITCH_OK_MODE, &Copy_Status);
+            IPC_SendUSART(USART_CH1, &Copy_Status, 1, NULLPTR);
+            break;
+        case 0x02: // Test function for Led_on()
+            // Call Led_on() with parameter test_case->parameter
+            ledState = LED_SetStatus(LED_RED, LED_STATE_ON);
+            IPC_SendUSART(USART_CH1, &ledState, 1, NULLPTR);
+            break;
+        case 0x03:
+            if(Copy_Status == SWITCH_PRESSED)
+            {
+              IPC_SendUSART(USART_CH1, &Copy_Status, 1, NULLPTR);
+              ledState = LED_SetStatus(LED_RED, LED_STATE_ON);
+              IPC_SendUSART(USART_CH1, &ledState, 1, NULLPTR);
+            }
+            else
+            {
+              IPC_SendUSART(USART_CH1, &Copy_Status, 1, NULLPTR);
+              ledState = LED_SetStatus(LED_RED, LED_STATE_OFF);
+              IPC_SendUSART(USART_CH1, &ledState, 1, NULLPTR);
+            }
+        default:
+            // Invalid test function, send NACK
+            send_ack(0);
+            return;
+    }
+    // Test case executed successfully, send ACK
+    send_ack(1);
+}
+void send_ack(u8 ack) {
+    IPC_SendUSART(USART_CH1, &ack, 1, NULLPTR);
+}
 void send_message(u8 *payload, u8 length) {
     u8 checksum = 0;
 
