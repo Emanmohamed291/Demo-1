@@ -19,9 +19,14 @@ u8 buffer;
 int main(void)
 {
 	RCC_enuEnableDisablePeripheral(RCC_AHB1,GPIOAEN,Periph_enuON);
+    RCC_enuEnableDisablePeripheral(RCC_AHB1,GPIOCEN,Periph_enuON);
 	IPC_Init(USART_CH1);
-  LED_Init();
+    LED_Init();
 	SWITCH_Init();
+    
+    while(1){
+        receive_test_case();     
+    }
 	// SWITCH_Init();
 	// LCD_InitPins();
 	// LCD_init_asynch(NULLPTR);
@@ -67,32 +72,42 @@ void receive_test_case() {
 }
 void execute_test_case(TestCase *test_case) {
   u8 Copy_Status = SWITCH_NOT_PRESSED;
-  u8 ledState;
+  u8 state;
+  u8 *payload;
     // Based on test_function, call corresponding test function
     switch (test_case->test_function) {
         case 0x01: // Test function for get_switch()
             // Call get_switch() with parameter test_case->parameter
-            SWITCH_GetStatus(SWITCH_OK_MODE, &Copy_Status);
+            state = SWITCH_GetStatus(SWITCH_OK_MODE, &Copy_Status);
+            if(Copy_Status == SWITCH_PRESSED||Copy_Status == SWITCH_NOT_PRESSED||state == SWITCH_OK){
+                //passed
+                payload = "ok";
+                send_message(payload, 2);
+            }
+            else{
+                //failed
+            }
             IPC_SendUSART(USART_CH1, &Copy_Status, 1, NULLPTR);
             break;
         case 0x02: // Test function for Led_on()
             // Call Led_on() with parameter test_case->parameter
-            ledState = LED_SetStatus(LED_RED, LED_STATE_ON);
-            IPC_SendUSART(USART_CH1, &ledState, 1, NULLPTR);
+            state = LED_SetStatus(LED_RED, LED_STATE_ON);
+            IPC_SendUSART(USART_CH1, &state, 1, NULLPTR);
             break;
         case 0x03:
             if(Copy_Status == SWITCH_PRESSED)
             {
               IPC_SendUSART(USART_CH1, &Copy_Status, 1, NULLPTR);
-              ledState = LED_SetStatus(LED_RED, LED_STATE_ON);
-              IPC_SendUSART(USART_CH1, &ledState, 1, NULLPTR);
+              state = LED_SetStatus(LED_RED, LED_STATE_ON);
+              IPC_SendUSART(USART_CH1, &state, 1, NULLPTR);
             }
             else
             {
               IPC_SendUSART(USART_CH1, &Copy_Status, 1, NULLPTR);
-              ledState = LED_SetStatus(LED_RED, LED_STATE_OFF);
-              IPC_SendUSART(USART_CH1, &ledState, 1, NULLPTR);
+              state = LED_SetStatus(LED_RED, LED_STATE_OFF);
+              IPC_SendUSART(USART_CH1, &state, 1, NULLPTR);
             }
+            break;
         default:
             // Invalid test function, send NACK
             send_ack(0);
@@ -100,6 +115,7 @@ void execute_test_case(TestCase *test_case) {
     }
     // Test case executed successfully, send ACK
     send_ack(1);
+    LED_SetStatus(LED_RED, LED_STATE_ON);
 }
 void send_ack(u8 ack) {
     IPC_SendUSART(USART_CH1, &ack, 1, NULLPTR);
@@ -111,7 +127,7 @@ void send_message(u8 *payload, u8 length) {
     IPC_SendUSART(USART_CH1, &START_BYTE, 1, NULLPTR);
 
     // Send payload length
-    IPC_SendUSART(USART_CH1, &buffer, length, NULLPTR);
+    IPC_SendUSART(USART_CH1, &length, 1, NULLPTR);
 
     // Send payload
     for (u8 i = 0; i < length; i++) {
