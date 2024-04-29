@@ -1,6 +1,7 @@
- #include "APP/APP_Demo1/APP_Demo.h"
+#include "APP/APP_Demo1/APP_Demo.h"
 
 u8 START_BYTE = 0xAA;
+
 // Structure to represent test cases
 typedef struct {
     u8 test_function;
@@ -11,30 +12,23 @@ typedef struct {
 void execute_test_case(TestCase *test_case);
 void send_ack(u8 ack);
 void receive_test_case();
-
 void send_message(u8 *payload, u8 length);
 void receive_message();
 u8 buffer;
 
 int main(void)
 {
-	RCC_enuEnableDisablePeripheral(RCC_AHB1,GPIOAEN,Periph_enuON);
-    RCC_enuEnableDisablePeripheral(RCC_AHB1,GPIOCEN,Periph_enuON);
-	IPC_Init(USART_CH1);
+    RCC_enuEnableDisablePeripheral(RCC_AHB1, GPIOAEN, Periph_enuON);
+    RCC_enuEnableDisablePeripheral(RCC_AHB1, GPIOCEN, Periph_enuON);
+    IPC_Init(USART_CH1);
     LED_Init();
-	SWITCH_Init();
-    
-    while(1){
-        receive_test_case();     
-    }
-	// SWITCH_Init();
-	// LCD_InitPins();
-	// LCD_init_asynch(NULLPTR);
-	// scheduler_init();
-	// APP_LCDMainMenu();
-	// scheduler_start();
-}
+    SWITCH_Init();
 
+    while (1) {
+        receive_test_case();
+		//send_message("  ok", 4);
+    }
+}
 
 void receive_test_case() {
     u8 start_byte, payload_length, checksum, received_checksum;
@@ -63,63 +57,70 @@ void receive_test_case() {
     if (checksum == received_checksum) {
         // Execute test case
         execute_test_case(&test_case);
-        //send report
-
     } else {
         // Error handling: Checksum mismatch
         send_ack(0); // Send NACK
     }
 }
+
 void execute_test_case(TestCase *test_case) {
-  u8 Copy_Status = SWITCH_NOT_PRESSED;
-  u8 state;
-  u8 *payload;
+    u8 Copy_Status = SWITCH_NOT_PRESSED;
+    u8 state;
+    u8 payload[4]; // Adjust payload size to accommodate result and ACK
+
     // Based on test_function, call corresponding test function
     switch (test_case->test_function) {
         case 0x01: // Test function for get_switch()
-            // Call get_switch() with parameter test_case->parameter
             state = SWITCH_GetStatus(SWITCH_OK_MODE, &Copy_Status);
-            if(Copy_Status == SWITCH_PRESSED||Copy_Status == SWITCH_NOT_PRESSED||state == SWITCH_OK){
-                //passed
-                payload = "ok";
-                send_message(payload, 2);
+            if (state == SWITCH_OK || state == SWITCH_NOT_PRESSED) {
+                payload[2] = 'o'; // 'o' for "ok"
+                payload[3] = 'k';
+            } else {
+                payload[2] = 'n'; // 'n' for "notok"
+                payload[3] = 'o';
             }
-            else{
-                //failed
-            }
-            IPC_SendUSART(USART_CH1, &Copy_Status, 1, NULLPTR);
+            payload[0] = Copy_Status; // First byte: Copy_Status
+            payload[1] = state;        // Second byte: LED state
             break;
         case 0x02: // Test function for Led_on()
-            // Call Led_on() with parameter test_case->parameter
             state = LED_SetStatus(LED_RED, LED_STATE_ON);
-            IPC_SendUSART(USART_CH1, &state, 1, NULLPTR);
+            payload[0] = 0; // First byte: Placeholder for Copy_Status
+            payload[1] = state; // Second byte: LED state
+            payload[2] = 'o'; // 'o' for "ok"
+            payload[3] = 'k';
             break;
         case 0x03:
-            if(Copy_Status == SWITCH_PRESSED)
-            {
-              IPC_SendUSART(USART_CH1, &Copy_Status, 1, NULLPTR);
-              state = LED_SetStatus(LED_RED, LED_STATE_ON);
-              IPC_SendUSART(USART_CH1, &state, 1, NULLPTR);
+            if (Copy_Status == SWITCH_PRESSED) {
+                state = LED_SetStatus(LED_RED, LED_STATE_ON);
+            } else {
+                state = LED_SetStatus(LED_RED, LED_STATE_OFF);
             }
-            else
-            {
-              IPC_SendUSART(USART_CH1, &Copy_Status, 1, NULLPTR);
-              state = LED_SetStatus(LED_RED, LED_STATE_OFF);
-              IPC_SendUSART(USART_CH1, &state, 1, NULLPTR);
-            }
+            payload[0] = Copy_Status; // First byte: Copy_Status
+            payload[1] = state;        // Second byte: LED state
+            payload[2] = 'o'; // 'o' for "ok"
+            payload[3] = 'k';
             break;
         default:
             // Invalid test function, send NACK
             send_ack(0);
             return;
     }
+
+    // Send the result along with acknowledgment in the same frame
+    //IPC_SendUSART(USART_CH1, payload, 4, NULLPTR);
+
     // Test case executed successfully, send ACK
-    send_ack(1);
-    LED_SetStatus(LED_RED, LED_STATE_ON);
+    //send_ack(1);
+	send_message(payload, 4);
+    // Set LED status to ON
+    //LED_SetStatus(LED_RED, LED_STATE_ON);
 }
+
+
 void send_ack(u8 ack) {
     IPC_SendUSART(USART_CH1, &ack, 1, NULLPTR);
 }
+
 void send_message(u8 *payload, u8 length) {
     u8 checksum = 0;
 
@@ -131,45 +132,12 @@ void send_message(u8 *payload, u8 length) {
 
     // Send payload
     for (u8 i = 0; i < length; i++) {
-      IPC_SendUSART(USART_CH1, &payload[i], 1, NULLPTR);
+        IPC_SendUSART(USART_CH1, &payload[i], 1, NULLPTR);
         checksum ^= payload[i];
     }
 
     // Send checksum
     IPC_SendUSART(USART_CH1, &checksum, 1, NULLPTR);
-}
-void receive_message(u8* payload) {
-    u8 start_byte, payload_length, checksum, received_checksum;
-    //u8 payload[256]; // Max payload length assumed to be 256
-
-    // Wait for start byte
-    IPC_ReceiveUSART(USART_CH1, &start_byte, 1, NULLPTR);
-    if (start_byte != START_BYTE) {
-        return; // Discard message if start byte is incorrect
-    }
-
-    // Read payload length
-    IPC_ReceiveUSART(USART_CH1, &payload_length, 1, NULLPTR);
-
-    // Read payload
-    for (u8 i = 0; i < payload_length; i++) {
-      IPC_ReceiveUSART(USART_CH1, &payload[i], 1, NULLPTR);
-    }
-
-    // Calculate checksum
-    IPC_ReceiveUSART(USART_CH1, &received_checksum, 1, NULLPTR);
-    checksum = 0;
-    for (u8 i = 0; i < payload_length; i++) {
-        checksum ^= payload[i];
-    }
-
-    // Check for checksum match
-    if (checksum == received_checksum) {
-        //ok
-    } else {
-        // Error handling: Checksum mismatch
-        payload = NULLPTR;
-    }
 }
 
 // // Include necessary libraries
@@ -245,3 +213,17 @@ void receive_message(u8* payload) {
 //   }
 // }
 
+//#include "APP/APP_Demo1/APP_Demo.h"
+
+
+// int main(void)
+// {
+// 	RCC_enuEnableDisablePeripheral(RCC_AHB1,GPIOAEN,Periph_enuON);
+// 	IPC_Init(USART_CH1);
+// 	SWITCH_Init();
+// 	LCD_InitPins();
+// 	LCD_init_asynch(NULLPTR);
+// 	scheduler_init();
+// 	APP_LCDMainMenu();
+// 	scheduler_start();
+// }
