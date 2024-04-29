@@ -4,7 +4,7 @@
  
  /* @ Modified by: Your name
  * @ Modified time: 2024-04-15 00:55:51
- * @ Modified time: 2024-04-17 15:19:48
+ * @ Modified time: 2024-04-22 12:20:31
  * Layer	: App
  * Version  : V 0.0
  * Created	: Apr 8, 2024
@@ -1168,35 +1168,35 @@ void AppButtons_Runnable(void)
      ReturnState=HSwitch_GetState(MODE_OK_SWITCH,&(SwitchState[MODE_OK_SWITCH]));
      if(SwitchState[MODE_OK_SWITCH]==SWITCH_PRESSED)
         {
-            RXBuffer=OK_MODE_SWITCH;
+            TXBuffer=OK_MODE_SWITCH;
             IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,NULL);
         }
 
     ReturnState=HSwitch_GetState(UP_SWITCH,&(SwitchState[UP_SWITCH]));
      if(SwitchState[UP_SWITCH]==SWITCH_PRESSED)
         {
-            RXBuffer=UP;
+            TXBuffer=UP;
             IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,NULL);
         }
 
     ReturnState=HSwitch_GetState(EDIT_SWITCH,&(SwitchState[EDIT_SWITCH]));
      if(SwitchState[EDIT_SWITCH]==SWITCH_PRESSED)
         {
-            RXBuffer=EDIT;
+            TXBuffer=EDIT;
             IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,NULL);
         }
 
     ReturnState=HSwitch_GetState(RIGHT_START_STOP_SWITCH,&(SwitchState[RIGHT_START_STOP_SWITCH]));
      if(SwitchState[RIGHT_START_STOP_SWITCH]==SWITCH_PRESSED)
         {
-            RXBuffer=RIGHT_START_STOP_STOPWATCH_SWITCH;
+            TXBuffer=RIGHT_START_STOP_STOPWATCH_SWITCH;
             IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,NULL);
         }
 
     ReturnState=HSwitch_GetState(LEFT_RESET_SWITCH,&(SwitchState[LEFT_RESET_SWITCH]));
      if(SwitchState[LEFT_RESET_SWITCH]==SWITCH_PRESSED)
         {
-            RXBuffer=LEFT_RESET_STOPWATCH_SWITCH;
+            TXBuffer=LEFT_RESET_STOPWATCH_SWITCH;
             IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,NULL);
 
         }
@@ -1204,8 +1204,8 @@ void AppButtons_Runnable(void)
      ReturnState=HSwitch_GetState(DOWN_PAUSE_CONTINUE_SWITCH,&(SwitchState[DOWN_PAUSE_CONTINUE_SWITCH]));
      if(SwitchState[DOWN_PAUSE_CONTINUE_SWITCH]==SWITCH_PRESSED)
         {
-            RXBuffer=DOWN_PAUSE_CONTINUE_STOPWATCH_SWITCH;
-            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,USART_ReceiveCbf);
+            TXBuffer=DOWN_PAUSE_CONTINUE_STOPWATCH_SWITCH;
+            IPC_USART_SendBufferAsynchZeroCopy(USART_CH2,&TXBuffer,1,NULL);
         }  
 }
 #endif

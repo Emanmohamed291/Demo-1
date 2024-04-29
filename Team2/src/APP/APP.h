@@ -11,10 +11,10 @@
 #define APP8_LCD_SCHED_APP          8
 #define APP9_UART_TEST              9
 #define APP10_DEMO1                 10
-#define APP11_DEMO1_STOPWATCH_TEST  11
+#define APP11_RPC                   11
 
 /************************************************/
-    #define APP      APP10_DEMO1
+    #define APP      APP11_RPC
 /************************************************/
 
 #endif // APP_APP_H_
